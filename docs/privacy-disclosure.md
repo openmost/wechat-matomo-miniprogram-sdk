@@ -59,13 +59,16 @@ contract filing, or certification, as applicable to your organization) and discl
 and safeguards in your privacy policy.
 
 **User control:** users can decline analytics tracking. If [your mini program name] provides a privacy
-consent popup, declining calls `Matomo.optOut()` (or leaves `Matomo.requireConsent()` unresolved),
-which stops all further data collection and deletes the stored visitor identifier and any data queued
-but not yet sent (only the opt-out status is kept). Consent given with
-`Matomo.rememberConsentGiven()` is stored on the device (optionally with an expiry) and can be withdrawn at
-any time with `Matomo.forgetConsentGiven()`, which also deletes the stored visitor identifier; the
-withdrawal itself is stored on the device, so tracking stays off at later launches until the user agrees
-again. Withdrawing
+consent popup, declining can be handled in two ways. Calling `Matomo.optOut()` stops all further data
+collection and deletes the stored visitor identifier and any data queued but not yet sent; only the
+opt-out status is kept on the device. Leaving consent pending instead (`requireConsent`, without calling
+`Matomo.setConsentGiven()`) sends nothing until the user agrees, but does not delete anything: a visitor
+identifier stored on an earlier launch stays on the device, unchanged, and is reused if the user agrees
+later. Consent given with `Matomo.rememberConsentGiven()` is stored on the device (optionally with an
+expiry) and can be withdrawn at any time with `Matomo.forgetConsentGiven()`, which also deletes the stored
+visitor identifier and any data not yet sent; the withdrawal itself is stored on the device, so tracking
+stays off at later launches until the user agrees again. Withdrawing
+Withdrawing
 consent does not delete data already received by your Matomo server; contact **[your support email]** for
 a deletion request.
 
@@ -110,9 +113,11 @@ a deletion request.
 履行相应的跨境传输合规义务（如安全评估、标准合同备案或认证，视你的组织情况而定），并在隐私政策中披露接收方所在
 国家/地区及所采取的保护措施。
 
-**用户控制：** 用户可以拒绝统计追踪。若【你的小程序名称】提供隐私同意弹窗，用户拒绝时应调用 `Matomo.optOut()`
-（或不调用 `Matomo.setConsentGiven()` 使 `Matomo.requireConsent()` 保持未同意状态），这将停止所有后续数据收集，
-并删除已保存的访客标识符及尚未发送的排队数据（仅保留退出追踪状态）。通过 `Matomo.rememberConsentGiven()` 给出的同意会保存在设备上（可设置有效期），
-用户可随时通过 `Matomo.forgetConsentGiven()` 撤回，同时会删除已保存的访客标识符；撤回状态本身会保存在设备上，
+**用户控制：** 用户可以拒绝统计追踪。若【你的小程序名称】提供隐私同意弹窗，用户拒绝时有两种处理方式。调用
+`Matomo.optOut()` 将停止所有后续数据收集，并删除已保存的访客标识符及尚未发送的排队数据，设备上仅保留退出追踪状态。
+若改为保持未同意状态（使用 `requireConsent`，且不调用 `Matomo.setConsentGiven()`），则在用户同意之前不会发送任何
+数据，但也不会删除任何数据：之前启动时已保存的访客标识符会原样保留在设备上，并在用户之后同意时继续使用。通过
+`Matomo.rememberConsentGiven()` 给出的同意会保存在设备上（可设置有效期），用户可随时通过
+`Matomo.forgetConsentGiven()` 撤回，同时会删除已保存的访客标识符及尚未发送的数据；撤回状态本身会保存在设备上，
 因此在用户再次同意之前，之后的启动也不会进行追踪。撤回同意不会删除已发送至你的
 Matomo 服务器的历史数据；如需删除，请联系 **【你的客服邮箱】**。

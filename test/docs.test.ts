@@ -138,4 +138,18 @@ describe('docs stay in sync with code', () => {
       expect(callout).toContain('https://openmost.com · ronan@openmost.com');
     }
   });
+
+  it('never offers hosting and uses one contact address', () => {
+    const docs = ['README.md', 'README.zh-TW.md', 'README.en.md', 'docs/api.md', 'package.json'];
+    for (const doc of docs.map(read)) {
+      for (const term of [
+        'support@openmost.com',
+        '托管',
+        '託管',
+        'hosting',
+        'snake_case GA4 event name',
+      ])
+        expect(doc).not.toContain(term);
+    }
+  });
 });

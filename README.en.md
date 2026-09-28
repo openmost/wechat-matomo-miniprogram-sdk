@@ -26,7 +26,7 @@ A zero-dependency [Matomo](https://matomo.org) analytics SDK for WeChat mini pro
 - Offline queue with bulk sending, exponential-backoff retry, and a size cap — unsent hits survive
   restarts and long offline periods for up to 23 hours
 - Zero runtime dependencies
-- **< 40 KB minified** (measured 33,377 B)
+- **< 40 KB minified** (measured 33,393 B)
 - Full TypeScript types
 - Works in the WebView and Skyline rendering engines
 
@@ -92,8 +92,8 @@ See [`docs/api.md`](./docs/api.md) for what happens when `init` receives invalid
 
 Matomo has no official event naming convention, so this SDK follows the widely used GA4
 [recommended events](https://support.google.com/analytics/answer/9267735?hl=en) convention: `category` is a readable group, `action` is the event name in
-sentence case, and the event `name` (the 3rd argument, Matomo's `e_n`) is the snake_case GA4 event name
-— so **Events > Name** in Matomo reads like a GA4 event name.
+sentence case, and the event `name` (the 3rd argument, Matomo's `e_n`) is a GA4-style snake_case name
+— so **Events > Name** in Matomo reads like GA4 event names.
 
 ```js
 Matomo.trackEvent('Product', 'Add to cart', 'add_to_cart', 59.9);
@@ -288,8 +288,9 @@ A runnable WeChat DevTools example mini program exercising the SDK lives in
 
 ## Support
 
-[Openmost](https://openmost.com) (support@openmost.com) offers setup, hosting and training for Matomo and
-this SDK.
+[Openmost](https://openmost.com) (ronan@openmost.com), Matomo experts, helps with Matomo and this SDK:
+audit, setup, tracking plan, data quality, performance, dashboards, and installing Matomo on your own
+servers in China.
 
 ## License
 

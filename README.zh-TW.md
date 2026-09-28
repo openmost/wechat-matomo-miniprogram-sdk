@@ -24,7 +24,7 @@
 - 追蹤同意與 Cookie 同意（本次工作階段、帶有效期限的記住、撤回）及退出追蹤 —— 與 Matomo JS 同意 API 一致
 - 離線佇列，支援批次傳送、指數退避重試與容量上限 —— 尚未送出的資料在重新啟動與長時間離線後依然保留，最長 23 小時
 - 零執行期依賴
-- **壓縮後 < 40 KB**（實測 33,377 位元組）
+- **壓縮後 < 40 KB**（實測 33,393 位元組）
 - 完整 TypeScript 型別定義
 - 相容 WebView 與 Skyline 渲染引擎
 
@@ -89,8 +89,8 @@ App({/* 不變 */});
 
 Matomo 沒有官方的事件命名慣例，因此本 SDK 採用業界廣泛使用的 GA4
 [建議事件](https://support.google.com/analytics/answer/9267735?hl=en)命名慣例：`category`（類別）是易讀的分組名稱，`action`（動作）是首字母大寫的事件名稱片語，
-事件的 `name`（第三個參數，對應 Matomo 的 `e_n`）則是 snake_case 形式的 GA4 事件名稱 —— 如此一來，Matomo 的
-**Events > Name**（事件 > 名稱）呈現方式就會與 GA4 的事件名稱一致。
+事件的 `name`（第三個參數，對應 Matomo 的 `e_n`）則是 GA4 風格的 snake_case 名稱 —— 如此一來，Matomo 的
+**Events > Name**（事件 > 名稱）呈現方式就會與 GA4 的事件名稱風格一致。
 
 ```js
 Matomo.trackEvent('Product', 'Add to cart', 'add_to_cart', 59.9);
@@ -275,7 +275,8 @@ Promise resolve 的值中加入這些行銷活動參數。
 
 ## 支援
 
-[Openmost](https://openmost.com)（support@openmost.com）為 Matomo 及本 SDK 提供建置、託管與教育訓練服務。
+Matomo 專家 [Openmost](https://openmost.com)（ronan@openmost.com）可為 Matomo 及本 SDK 提供協助：稽核、部署設定、
+追蹤規劃、資料品質、效能優化、儀表板，以及在你自己位於中國的伺服器上安裝 Matomo。
 
 ## 授權條款
 

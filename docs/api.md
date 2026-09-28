@@ -66,7 +66,7 @@ Matomo.init({
 
 Matomo has no official event naming convention, so this SDK follows the widely used GA4
 [recommended events](https://support.google.com/analytics/answer/9267735?hl=en) convention: `category` is a readable group, `action` is the event name in
-sentence case, and the event `name` (Matomo's `e_n`) is the snake_case GA4 event name. Besides
+sentence case, and the event `name` (Matomo's `e_n`) is a GA4-style snake_case name. Besides
 pageviews, the SDK sends the automatic events below by itself; the `Auth` events are the recommended
 manual ones.
 
@@ -94,7 +94,8 @@ callback) still gets WeChat's Promise. Exceptions thrown by your callbacks propa
 returned. For a Promise-style call, the SDK attaches its own handlers to the returned Promise to observe
 the outcome, so a rejected payment Promise that your code forgets to `.catch` no longer raises an
 unhandled-rejection warning — keep handling rejections yourself. The wrapper is installed only once,
-even if several trackers enable `trackPayments`. If
+even if several trackers enable `trackPayments`: only the first tracker instance that enabled it reports
+payment events. If
 `wx.requestPayment` is missing or cannot be replaced, payment tracking is silently disabled (logged with
 `debug: true`). Code that kept its own reference to `wx.requestPayment` before `init` is not tracked.
 
@@ -136,8 +137,8 @@ logged in debug mode otherwise.
 Sends: `e_c`, `e_a`, `e_n`, `e_v`.
 
 Following the GA4 convention, `category` and `action` are human-readable (`'Product'`, `'Add to cart'`)
-while `name` is a snake_case event name (`'add_to_cart'`), so **Events > Name** in Matomo reads like a
-GA4 event name.
+while `name` is a GA4-style snake_case name (`'add_to_cart'`), so **Events > Name** in Matomo reads like
+GA4 event names.
 
 ```js
 Matomo.trackEvent('Product', 'Add to cart', 'add_to_cart', 59.9);
@@ -299,7 +300,8 @@ that is the visitor ID with its visit counters and the offline queue of unsent h
 - `optOut()` always wins, whatever the consent state.
 - No hit leaves the device while tracking consent is pending, not even hits queued earlier with consent
   (e.g. while offline): they are held in memory, their stored copy is removed, and they are sent once
-  tracking consent is given again. Like Matomo JS, which keeps its `_pk_id` cookie while waiting for
+  tracking consent is given again — except after `forgetConsentGiven()`, which drops them, like
+  `optOut()`. Like Matomo JS, which keeps its `_pk_id` cookie while waiting for
   consent, a stored visitor ID is reused but not updated, so a user who consents on every launch keeps
   the same visitor ID.
 - When cookie consent is required and not given at launch (e.g. a remembered cookie consent expired, or
@@ -352,8 +354,9 @@ Withdraws tracking consent, whether it was given for the session or remembered. 
 `forgetConsentGiven()` calls `requireConsent()` and `forgetCookieConsentGiven()`), the tracker then
 requires tracking consent whatever its mode was, so it stops sending until consent is given again; hits
 tracked meanwhile are kept in memory as described in the [overview](#consent-overview). It also forgets
-cookie consent, removes the stored consent, visitor ID and queue, discards the hits kept in memory, and
-resets the visitor ID. The withdrawal is stored on the device (like the Matomo JS
+cookie consent, removes the stored consent, visitor ID and queue, discards the hits kept in memory and
+the queued unsent hits (so hits collected before the withdrawal are never sent under a later consent, as
+with `optOut()`), and resets the visitor ID. The withdrawal is stored on the device (like the Matomo JS
 `mtm_consent_removed` cookie): later launches also require tracking consent, even with
 `requireConsent: false`, until `setConsentGiven()` or `rememberConsentGiven()` is called.
 

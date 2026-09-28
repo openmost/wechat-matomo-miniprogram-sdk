@@ -18,7 +18,7 @@ First public release, published to npm as `@openmost/wechat-matomo-miniprogram-s
 - Ecommerce: product views, cart updates and orders.
 - `trackPayments` option (off by default): wraps `wx.requestPayment` once and sends `Ecommerce` payment
   events; the host's callbacks, return value and exceptions are unchanged.
-- Automatic events named by one convention — category, sentence-case action, snake_case GA4 event name:
+- Automatic events named by one convention — category, sentence-case action, GA4-style snake_case name:
   `Ecommerce` / `Begin checkout` / `begin_checkout`, `Purchase` / `purchase`, `Payment cancelled` /
   `payment_cancelled`, `Payment failed` / `payment_failed`; `Share` / `Share to chat` / `share_to_chat`,
   `Share to Moments` / `share_to_moments`. The READMEs document the convention, with `Auth` / `Login` /
@@ -31,6 +31,7 @@ First public release, published to npm as `@openmost/wechat-matomo-miniprogram-s
   `getRememberedCookieConsent`, `areCookiesEnabled`), plus `optOut`/`optIn`/`isOptedOut`.
   - Nothing is sent while tracking consent is pending: hits are kept in memory (max 100) and sent with
     their original time once consent is given, and hits queued earlier are held too.
+    `forgetConsentGiven()` drops them, like `optOut()`.
   - While tracking consent is pending a stored visitor ID is reused but not written, like Matomo JS
     `_pk_id`; without cookie consent the stored visitor ID and queue are removed and nothing is written.
   - A withdrawn consent (`forgetConsentGiven()`) is remembered, like `mtm_consent_removed`, until
