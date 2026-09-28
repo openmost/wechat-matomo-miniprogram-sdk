@@ -3,7 +3,7 @@ import { parseConfig, type MatomoConfig, type MatomoOptions } from './config';
 import { Consent, Kind } from './consent';
 import { getDeviceContext, type DeviceContext } from './context';
 import { Cart, cartUpdateParams, orderParams, productViewParams } from './ecommerce';
-import { installLifecycle, type LifecycleTarget, type ShareResult } from './lifecycle';
+import { installLifecycle, wrapPayment, type LifecycleTarget, type ShareResult } from './lifecycle';
 import { createPlatform, type Platform } from './platform';
 import { HitQueue } from './queue';
 import {
@@ -117,6 +117,14 @@ export class MatomoTracker {
       if (target) installLifecycle(target, this.hooks(state), (e) => this.log('hook error', e));
       if (!config.disabled && !crawler) state.queue.start();
       this.state = state;
+      if (config.trackPayments && !crawler && !config.disabled) {
+        const hooked = platform.hookPayment((original) =>
+          wrapPayment(original, (action, name) =>
+            this.run((s) => this.track(s, { e_c: 'Ecommerce', e_a: action, e_n: name })),
+          ),
+        );
+        if (!hooked) this.log('trackPayments: wx.requestPayment not wrappable');
+      }
       const pending = this.buffer;
       this.buffer = [];
       const initializedState = state;

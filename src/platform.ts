@@ -48,7 +48,10 @@ export interface WxLike {
   getAppBaseInfo?(): WxAppBaseInfo;
   getSystemInfoSync?(): WxDeviceInfo & WxWindowInfo & WxAppBaseInfo;
   onNetworkStatusChange?(listener: (result: { isConnected: boolean }) => void): void;
+  requestPayment?: PaymentFn;
 }
+
+export type PaymentFn = (this: unknown, ...args: unknown[]) => unknown;
 
 export const STORAGE_PREFIX = '_mtm_sdk_';
 
@@ -65,6 +68,8 @@ export interface Platform {
   account(): AccountSnapshot;
   system(): SystemSnapshot;
   onOnline(listener: () => void): void;
+  /** Replaces wx.requestPayment with `wrap(original)`; false if missing or not replaceable. */
+  hookPayment(wrap: (original: PaymentFn) => PaymentFn): boolean;
 }
 
 function attempt<T>(fn: () => T, fallback: T): T {
@@ -163,6 +168,16 @@ export function createPlatform(
     system() {
       system ??= readSystem(wx);
       return system;
+    },
+    hookPayment(wrap) {
+      return attempt(() => {
+        const original = wx.requestPayment;
+        if (typeof original !== 'function') return false;
+        const next = wrap(original);
+        // Throws (strict mode) on a read-only property; a setter may also ignore the value.
+        wx.requestPayment = next;
+        return wx.requestPayment === next;
+      }, false);
     },
     onOnline(listener) {
       attempt(

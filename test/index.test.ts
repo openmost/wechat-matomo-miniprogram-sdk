@@ -672,4 +672,54 @@ describe('Matomo facade', () => {
     expect(broken.getRememberedConsent()).toBeNull();
     expect(broken.areCookiesEnabled()).toBe(false);
   });
+
+  it('tracks native payments in GA4 style when trackPayments is on', () => {
+    let result = { errMsg: '' };
+    wx.requestPayment = (o?: unknown) => {
+      const c = o as Record<string, (r: unknown) => void>;
+      if (result.errMsg.endsWith(':ok')) c.success?.(result);
+      else c.fail?.(result);
+      c.complete?.(result);
+    };
+    init({ trackPayments: true });
+    const pay = (errMsg: string) => {
+      result = { errMsg };
+      wx.requestPayment?.({ paySign: 's', complete: () => undefined });
+    };
+    pay('requestPayment:ok');
+    pay('requestPayment:fail cancel');
+    pay('requestPayment:fail');
+    expect(
+      hits()
+        .filter((h) => h.e_c === 'Ecommerce')
+        .map((h) => [h.e_a, h.e_n]),
+    ).toEqual([
+      ['Payment started', 'begin_checkout'],
+      ['Payment completed', 'purchase'],
+      ['Payment started', 'begin_checkout'],
+      ['Payment cancelled', 'payment_cancelled'],
+      ['Payment started', 'begin_checkout'],
+      ['Payment failed', 'payment_failed'],
+    ]);
+  });
+
+  it('leaves wx.requestPayment alone by default and on a crawler launch', () => {
+    const original = () => undefined;
+    wx.requestPayment = original;
+    init();
+    expect(wx.requestPayment).toBe(original);
+    wx.launch = { path: 'pages/index/index', scene: 1129, query: {} };
+    newTracker().init({ trackerUrl: 'https://s.cn', siteId: 1, trackPayments: true });
+    expect(wx.requestPayment).toBe(original);
+  });
+
+  it('silently disables trackPayments when wx.requestPayment cannot be replaced', () => {
+    const original = () => 'task';
+    Object.defineProperty(wx, 'requestPayment', { value: original, writable: false });
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    expect(init({ trackPayments: true, debug: true })).toBe(true);
+    expect(wx.requestPayment).toBe(original);
+    expect(log.mock.calls.some((c) => String(c[0]).includes('trackPayments'))).toBe(true);
+    log.mockRestore();
+  });
 });

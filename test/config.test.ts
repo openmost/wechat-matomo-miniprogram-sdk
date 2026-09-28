@@ -38,6 +38,7 @@ describe('parseConfig', () => {
       trackerPath: 'matomo.php',
       autoTrackPages: true,
       trackShares: true,
+      trackPayments: false,
       shareCampaign: 'wechat_share',
       trackScenes: true,
       requireConsent: false,
@@ -62,6 +63,7 @@ describe('parseConfig', () => {
       shareCampaign: false,
       userId: '  u-1 ',
       heartbeat: 0,
+      trackPayments: true,
     });
     expect(result.ok && result.config).toMatchObject({
       siteId: '12',
@@ -73,6 +75,7 @@ describe('parseConfig', () => {
       shareCampaign: false,
       userId: 'u-1',
       heartbeat: 0,
+      trackPayments: true,
     });
   });
 
@@ -83,6 +86,7 @@ describe('parseConfig', () => {
       heartbeat: 999,
       batchSize: 1.5,
       debug: 'yes',
+      trackPayments: 1,
       requireConsent: 'always',
       customDimensions: { 1000: 'x', 3: 4 },
     });
@@ -94,6 +98,7 @@ describe('parseConfig', () => {
         { field: 'heartbeat', code: 'out_of_range' },
         { field: 'batchSize', code: 'invalid_type' },
         { field: 'debug', code: 'invalid_type' },
+        { field: 'trackPayments', code: 'invalid_type' },
         { field: 'requireConsent', code: 'invalid_type' },
         { field: 'customDimensions.1000', code: 'out_of_range' },
         { field: 'customDimensions.3', code: 'invalid_type' },

@@ -204,3 +204,46 @@ export function installLifecycle(
     target.Component = originals.Component;
   };
 }
+
+type Fn = (this: unknown, ...args: unknown[]) => unknown;
+
+/**
+ * Wraps `wx.requestPayment` to report GA4-style steps (action, name). The host sees exactly what
+ * it would without the SDK: same arguments, `this`, return value (task or Promise) and exceptions.
+ * Callbacks are only wrapped when the host passed some; otherwise WeChat returns its Promise and
+ * the SDK merely observes it.
+ */
+export function wrapPayment(original: Fn, report: (action: string, name: string) => void): Fn {
+  const failed = (e: unknown) =>
+    isRecord(e) && /cancel/.test(String(e.errMsg))
+      ? report('Payment cancelled', 'payment_cancelled')
+      : report('Payment failed', 'payment_failed');
+  const done = () => report('Payment completed', 'purchase');
+  return function (this: unknown, ...args: unknown[]) {
+    report('Payment started', 'begin_checkout');
+    const o = args[0];
+    if (isRecord(o) && [o.success, o.fail, o.complete].some((f) => typeof f === 'function')) {
+      const { success, fail } = o;
+      args[0] = {
+        ...o,
+        success(this: unknown, ...r: unknown[]) {
+          done();
+          return typeof success === 'function' ? (success as Fn).apply(this, r) : undefined;
+        },
+        fail(this: unknown, ...r: unknown[]) {
+          failed(r[0]);
+          return typeof fail === 'function' ? (fail as Fn).apply(this, r) : undefined;
+        },
+      };
+      return original.apply(this, args);
+    }
+    const result = original.apply(this, args);
+    try {
+      if (isRecord(result) && typeof result.then === 'function')
+        (result as unknown as Promise<unknown>).then(done, failed);
+    } catch {
+      // An odd thenable: nothing to observe.
+    }
+    return result;
+  };
+}

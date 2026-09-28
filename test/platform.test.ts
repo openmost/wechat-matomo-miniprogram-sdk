@@ -141,3 +141,36 @@ describe('createPlatform', () => {
     expect(p.random()).toBe(0.5);
   });
 });
+
+describe('hookPayment', () => {
+  const wrap = (original: (...a: unknown[]) => unknown) =>
+    function wrapped(this: unknown, ...args: unknown[]) {
+      return original.apply(this, args);
+    };
+
+  it('replaces wx.requestPayment when it can', () => {
+    const original = vi.fn(() => 'r');
+    const wx = createWxMock({ requestPayment: original });
+    expect(createPlatform(wx).hookPayment(wrap)).toBe(true);
+    expect(wx.requestPayment).not.toBe(original);
+    expect(wx.requestPayment?.({})).toBe('r');
+  });
+
+  it('does nothing when wx.requestPayment is missing', () => {
+    const wx = createWxMock();
+    expect(createPlatform(wx).hookPayment(wrap)).toBe(false);
+    expect(wx.requestPayment).toBeUndefined();
+  });
+
+  it('silently gives up when the property cannot be replaced', () => {
+    const original = () => 'r';
+    const readOnly = createWxMock();
+    Object.defineProperty(readOnly, 'requestPayment', { value: original, writable: false });
+    expect(createPlatform(readOnly).hookPayment(wrap)).toBe(false);
+    expect(readOnly.requestPayment).toBe(original);
+
+    const ignored = createWxMock();
+    Object.defineProperty(ignored, 'requestPayment', { get: () => original, set: () => undefined });
+    expect(createPlatform(ignored).hookPayment(wrap)).toBe(false);
+  });
+});

@@ -14,7 +14,7 @@ A zero-dependency [Matomo](https://matomo.org) analytics SDK for WeChat mini pro
 - WeChat scene → campaign attribution (scan, share, search, ads, official account, video channel, …)
 - Share tracking (`onShareAppMessage`/`onShareTimeline`) with campaign parameters appended to the shared link
 - Custom events, site search, goals, outlinks and downloads
-- Ecommerce: product view, cart updates, orders
+- Ecommerce: product view, cart updates, orders, and optional WeChat Pay events (`trackPayments`)
 - Custom dimensions
 - User ID
 - Consent modes (`tracking` / `cookie`) and opt-out, matching Matomo JS semantics
@@ -66,6 +66,7 @@ The host adds the tracker domain to 开发管理 → 服务器域名 → **reque
 | `pageTitles`       | `Record<string,string>`           | `{}`             | route → title; else `navigationBarTitleText`-agnostic route                         |
 | `excludedRoutes`   | string[]                          | `[]`             | route prefix match (leading `/` ignored), e.g. `pages/debug/`                       |
 | `trackShares`      | boolean                           | `true`           | `Share` / `Share to chat` or `Share to Moments` / `share` event                     |
+| `trackPayments`    | boolean                           | `false`          | wrap `wx.requestPayment` and send GA4-style payment events                          |
 | `shareCampaign`    | string \| false                   | `'wechat_share'` | appended to share path as `mtm_campaign`                                            |
 | `trackScenes`      | boolean                           | `true`           | map entry scene to campaign/referrer                                                |
 | `requireConsent`   | `false \| 'tracking' \| 'cookie'` | `false`          | mirrors Matomo JS consent modes                                                     |
@@ -91,6 +92,10 @@ while the event `name` (the 3rd argument, Matomo's `e_n`) is a snake_case event 
 ```js
 Matomo.trackEvent('Product', 'Add to cart', 'add_to_cart', 59.9);
 ```
+
+**Automatic events** (GA4 style): with `trackShares` (on by default), sharing a page sends `Share` /
+`Share to chat` (`onShareAppMessage`) or `Share to Moments` (`onShareTimeline`) / `share`; with
+`trackPayments` (off by default), WeChat Pay sends the `Ecommerce` payment events described below.
 
 **Site search:**
 
@@ -119,6 +124,33 @@ Matomo.trackEcommerceCartUpdate(119.8);
 
 ```js
 Matomo.trackEcommerceOrder('ORDER-42', 119.8, 99.8, 10, 10, 0);
+```
+
+**Ecommerce — WeChat Pay (`trackPayments: true`, off by default):** the SDK wraps `wx.requestPayment`
+and sends GA4-style events: `Ecommerce` / `Payment started` / `begin_checkout` when it is called, then
+`Payment completed` / `purchase` on success, `Payment cancelled` / `payment_cancelled` when the user
+cancels (`requestPayment:fail cancel`), or `Payment failed` / `payment_failed` for any other failure.
+Your `success`/`fail`/`complete` callbacks and the returned Promise behave exactly as without the SDK. If
+`wx.requestPayment` cannot be replaced, the option is silently disabled (logged with `debug: true`).
+
+`wx.requestPayment` only receives signing parameters (`timeStamp`, `nonceStr`, `package`, `signType`,
+`paySign`) — no amount or items — so revenue still requires `trackEcommerceOrder(...)` in your `success`
+callback:
+
+```js
+Matomo.init({ trackerUrl: 'https://stats.example.cn', siteId: 3, trackPayments: true });
+
+// wx.requestPayment only gets signing parameters: record the order yourself on success
+wx.requestPayment({
+  timeStamp,
+  nonceStr,
+  package: prepayPackage,
+  signType: 'RSA',
+  paySign,
+  success() {
+    Matomo.trackEcommerceOrder(orderId, 119.8);
+  },
+});
 ```
 
 **User ID** — use a hashed/salted identifier derived from your own account system, **never the raw

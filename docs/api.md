@@ -11,6 +11,7 @@ host app, and can be called before `init` — calls made before `init` are buffe
 in order, right after a successful `init`. A second call to `init` is ignored.
 
 - [init(options)](#initoptions)
+- [Automatic events](#automatic-events)
 - [trackPageView(title?, path?)](#trackpageviewtitle-path)
 - [trackEvent(category, action, name?, value?)](#trackeventcategory-action-name-value)
 - [trackSiteSearch(keyword, category?, resultsCount?)](#tracksitesearchkeyword-category-resultscount)
@@ -56,6 +57,44 @@ if `options` failed validation (details are logged with `console.warn` when `deb
 Matomo.init({
   trackerUrl: 'https://stats.example.cn',
   siteId: 3,
+});
+```
+
+### Automatic events
+
+Besides pageviews, the SDK sends these events by itself, named in GA4 style (readable category and
+action, snake_case GA4 event name as the Matomo event name):
+
+| When                                                         | Category    | Action              | Name                |
+| ------------------------------------------------------------ | ----------- | ------------------- | ------------------- |
+| `onShareAppMessage` (option `trackShares`, on by default)    | `Share`     | `Share to chat`     | `share`             |
+| `onShareTimeline` (option `trackShares`)                     | `Share`     | `Share to Moments`  | `share`             |
+| `wx.requestPayment` called (option `trackPayments`, off)     | `Ecommerce` | `Payment started`   | `begin_checkout`    |
+| payment succeeded                                            | `Ecommerce` | `Payment completed` | `purchase`          |
+| payment cancelled by the user (`requestPayment:fail cancel`) | `Ecommerce` | `Payment cancelled` | `payment_cancelled` |
+| payment failed for any other reason                          | `Ecommerce` | `Payment failed`    | `payment_failed`    |
+
+The shared page is the page URL of the share event.
+
+With `trackPayments: true`, `init` replaces
+[`wx.requestPayment`](https://developers.weixin.qq.com/miniprogram/dev/api/payment/wx.requestPayment.html)
+with a wrapper. The wrapper passes the same arguments and `this` on, and returns what WeChat returns:
+your `success`/`fail`/`complete` callbacks run with the same results, and a Promise-style call (no
+callback) still gets WeChat's Promise. Exceptions thrown by your callbacks propagate as before. If
+`wx.requestPayment` is missing or cannot be replaced, payment tracking is silently disabled (logged with
+`debug: true`). Code that kept its own reference to `wx.requestPayment` before `init` is not tracked.
+
+`wx.requestPayment` only receives signing parameters (`timeStamp`, `nonceStr`, `package`, `signType`,
+`paySign`): the amount and the items are unknown to the SDK. Track the order with
+[trackEcommerceOrder()](#trackecommerceorderorderid-grandtotal-subtotal-tax-shipping-discount) in your
+`success` callback:
+
+```js
+wx.requestPayment({
+  ...paymentParams, // from your server
+  success() {
+    Matomo.trackEcommerceOrder(order.id, order.total);
+  },
 });
 ```
 

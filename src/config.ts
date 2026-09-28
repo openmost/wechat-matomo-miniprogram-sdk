@@ -9,6 +9,7 @@ export interface MatomoConfig {
   pageTitles: Record<string, string>;
   excludedRoutes: string[];
   trackShares: boolean;
+  trackPayments: boolean;
   shareCampaign: string | false;
   trackScenes: boolean;
   requireConsent: ConsentMode;
@@ -49,6 +50,7 @@ export const DEFAULTS: Omit<MatomoConfig, 'trackerUrl' | 'siteId'> = {
   pageTitles: {},
   excludedRoutes: [],
   trackShares: true,
+  trackPayments: false,
   shareCampaign: 'wechat_share',
   trackScenes: true,
   requireConsent: false,
@@ -61,7 +63,14 @@ export const DEFAULTS: Omit<MatomoConfig, 'trackerUrl' | 'siteId'> = {
   disabled: false,
 };
 
-const BOOLEAN_KEYS = ['autoTrackPages', 'trackShares', 'trackScenes', 'debug', 'disabled'] as const;
+const BOOLEAN_KEYS = [
+  'autoTrackPages',
+  'trackShares',
+  'trackPayments',
+  'trackScenes',
+  'debug',
+  'disabled',
+] as const;
 
 const RANGES = {
   heartbeat: [0, 300],

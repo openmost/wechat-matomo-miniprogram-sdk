@@ -14,7 +14,7 @@
 - 微信场景值 → 营销活动（campaign）归因（扫码、分享、搜索、广告、公众号、视频号等）
 - 分享追踪（`onShareAppMessage`/`onShareTimeline`），并在分享链接上附加营销活动参数
 - 自定义事件、站内搜索、目标转化、外链与下载
-- 电商：商品浏览、购物车更新、订单
+- 电商：商品浏览、购物车更新、订单，以及可选的微信支付事件（`trackPayments`）
 - 自定义维度
 - 用户 ID
 - 同意模式（`tracking` / `cookie`）与退出追踪，语义与 Matomo JS 保持一致
@@ -64,6 +64,7 @@ App({/* 不变 */});
 | `pageTitles`       | `Record<string,string>`           | `{}`             | 路由 → 标题；未配置时使用路由本身（与 `navigationBarTitleText` 无关）                        |
 | `excludedRoutes`   | string[]                          | `[]`             | 路由前缀匹配（忽略开头的 `/`），如 `pages/debug/`                                            |
 | `trackShares`      | boolean                           | `true`           | 分享时发送 `Share` / `Share to chat` 或 `Share to Moments` / `share` 事件                    |
+| `trackPayments`    | boolean                           | `false`          | 包装 `wx.requestPayment`，发送 GA4 风格的支付事件                                            |
 | `shareCampaign`    | string \| false                   | `'wechat_share'` | 以 `mtm_campaign` 形式附加到分享路径                                                         |
 | `trackScenes`      | boolean                           | `true`           | 将入口场景值映射为营销活动/来源                                                              |
 | `requireConsent`   | `false \| 'tracking' \| 'cookie'` | `false`          | 与 Matomo JS 的同意模式语义一致                                                              |
@@ -89,6 +90,10 @@ App({/* 不变 */});
 ```js
 Matomo.trackEvent('Product', 'Add to cart', 'add_to_cart', 59.9);
 ```
+
+**自动事件**（GA4 风格）：开启 `trackShares`（默认开启）时，分享页面会发送 `Share` / `Share to chat`
+（`onShareAppMessage`）或 `Share to Moments`（`onShareTimeline`）/ `share` 事件；开启 `trackPayments`（默认关闭）时，
+微信支付会发送下文所述的 `Ecommerce` 支付事件。
 
 **站内搜索：**
 
@@ -117,6 +122,31 @@ Matomo.trackEcommerceCartUpdate(119.8);
 
 ```js
 Matomo.trackEcommerceOrder('ORDER-42', 119.8, 99.8, 10, 10, 0);
+```
+
+**电商 —— 微信支付（`trackPayments: true`，默认关闭）：** SDK 会包装 `wx.requestPayment` 并发送 GA4 风格的事件：
+调用时发送 `Ecommerce` / `Payment started` / `begin_checkout`；支付成功时发送 `Payment completed` / `purchase`；
+用户取消（`requestPayment:fail cancel`）时发送 `Payment cancelled` / `payment_cancelled`；其他失败发送
+`Payment failed` / `payment_failed`。你的 `success`/`fail`/`complete` 回调以及返回的 Promise 与未接入 SDK
+时的行为完全一致。如果 `wx.requestPayment` 无法被替换，该选项会静默停用（`debug: true` 时会输出日志）。
+
+`wx.requestPayment` 只接收签名参数（`timeStamp`、`nonceStr`、`package`、`signType`、`paySign`），没有金额和
+商品信息 —— 因此收入数据仍需在 `success` 回调中调用 `trackEcommerceOrder(...)`：
+
+```js
+Matomo.init({ trackerUrl: 'https://stats.example.cn', siteId: 3, trackPayments: true });
+
+// wx.requestPayment 只接收签名参数：请在支付成功时自行记录订单
+wx.requestPayment({
+  timeStamp,
+  nonceStr,
+  package: prepayPackage,
+  signType: 'RSA',
+  paySign,
+  success() {
+    Matomo.trackEcommerceOrder(orderId, 119.8);
+  },
+});
 ```
 
 **用户 ID** —— 请使用基于你自有账号体系生成的、经过哈希/加盐处理的标识符，**切勿使用原始的微信 `openid`/
