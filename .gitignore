@@ -1,0 +1,10 @@
+node_modules/
+miniprogram_dist/
+coverage/
+.worktrees/
+.superpowers/
+example/miniprogram/miniprogram_npm/
+example/project.private.config.json
+*.log
+.DS_Store
+.idea/

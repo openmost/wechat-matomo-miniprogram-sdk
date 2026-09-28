@@ -1,0 +1,60 @@
+{
+  "name": "wechat-matomo-miniprogram-sdk",
+  "version": "0.0.0",
+  "description": "Matomo analytics SDK for WeChat mini programs: automatic pageviews, events, site search, ecommerce, consent",
+  "license": "MIT",
+  "author": "Openmost <support@openmost.com> (https://openmost.com)",
+  "homepage": "https://github.com/openmost/wechat-matomo-miniprogram-sdk#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/openmost/wechat-matomo-miniprogram-sdk.git"
+  },
+  "bugs": "https://github.com/openmost/wechat-matomo-miniprogram-sdk/issues",
+  "keywords": [
+    "matomo",
+    "wechat",
+    "weixin",
+    "miniprogram",
+    "mini-program",
+    "analytics",
+    "小程序",
+    "统计"
+  ],
+  "main": "miniprogram_dist/index.js",
+  "types": "miniprogram_dist/index.d.ts",
+  "miniprogram": "miniprogram_dist",
+  "files": [
+    "miniprogram_dist",
+    "README.md",
+    "README.zh-CN.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "node scripts/clean.mjs && tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "coverage": "vitest run --coverage",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.6.3",
+    "@vitest/coverage-v8": "^5.0.2",
+    "esbuild": "^0.28.2",
+    "eslint": "^10.11.0",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.12.0",
+    "prettier": "^3.9.9",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.70.1",
+    "vitest": "^5.0.2"
+  }
+}

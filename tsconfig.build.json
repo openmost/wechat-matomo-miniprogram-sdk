@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["ES2017", "DOM"],
+    "module": "node16",
+    "moduleResolution": "node16",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "declaration": true,
+    "sourceMap": false,
+    "removeComments": false,
+    "types": [],
+    "rootDir": "src",
+    "outDir": "miniprogram_dist",
+    "skipLibCheck": true
+  },
+  "include": ["src"]
+}

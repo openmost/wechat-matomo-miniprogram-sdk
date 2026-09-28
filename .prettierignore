@@ -1,0 +1,7 @@
+miniprogram_dist
+coverage
+node_modules
+package-lock.json
+.worktrees
+.superpowers
+example/miniprogram/miniprogram_npm
