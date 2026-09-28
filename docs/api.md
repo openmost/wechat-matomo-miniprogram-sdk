@@ -82,7 +82,12 @@ With `trackPayments: true`, `init` replaces
 [`wx.requestPayment`](https://developers.weixin.qq.com/miniprogram/dev/api/payment/wx.requestPayment.html)
 with a wrapper. The wrapper passes the same arguments and `this` on, and returns what WeChat returns:
 your `success`/`fail`/`complete` callbacks run with the same results, and a Promise-style call (no
-callback) still gets WeChat's Promise. Exceptions thrown by your callbacks propagate as before. If
+callback) still gets WeChat's Promise. Exceptions thrown by your callbacks propagate as before, and if
+`wx.requestPayment` itself throws, nothing is reported: `begin_checkout` is sent only once the call has
+returned. For a Promise-style call, the SDK attaches its own handlers to the returned Promise to observe
+the outcome, so a rejected payment Promise that your code forgets to `.catch` no longer raises an
+unhandled-rejection warning — keep handling rejections yourself. The wrapper is installed only once,
+even if several trackers enable `trackPayments`. If
 `wx.requestPayment` is missing or cannot be replaced, payment tracking is silently disabled (logged with
 `debug: true`). Code that kept its own reference to `wx.requestPayment` before `init` is not tracked.
 

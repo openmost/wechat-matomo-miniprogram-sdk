@@ -206,23 +206,31 @@ export function installLifecycle(
 }
 
 type Fn = (this: unknown, ...args: unknown[]) => unknown;
+/** Marks the SDK wrapper, so `wx.requestPayment` is never wrapped twice. */
+const WRAPPED = '__mtmPayment';
 
 /**
  * Wraps `wx.requestPayment` to report GA4-style steps (action, name). The host sees exactly what
  * it would without the SDK: same arguments, `this`, return value (task or Promise) and exceptions.
  * Callbacks are only wrapped when the host passed some; otherwise WeChat returns its Promise and
- * the SDK merely observes it.
+ * the SDK merely observes it. `begin_checkout` is reported once the call returned without
+ * throwing; an outcome reported by a callback during the call is sent right after it.
  */
 export function wrapPayment(original: Fn, report: (action: string, name: string) => void): Fn {
-  const failed = (e: unknown) =>
-    isRecord(e) && /cancel/.test(String(e.errMsg))
-      ? report('Payment cancelled', 'payment_cancelled')
-      : report('Payment failed', 'payment_failed');
-  const done = () => report('Payment completed', 'purchase');
-  return function (this: unknown, ...args: unknown[]) {
-    report('Payment started', 'begin_checkout');
+  if ((original as unknown as Record<string, unknown>)[WRAPPED] === true) return original;
+  const wrapper = function (this: unknown, ...args: unknown[]) {
+    let early: Array<() => void> | undefined = [];
+    const emit = (action: string, name: string) =>
+      early ? early.push(() => report(action, name)) : report(action, name);
+    const failed = (e: unknown) =>
+      isRecord(e) && /cancel/.test(String(e.errMsg))
+        ? emit('Payment cancelled', 'payment_cancelled')
+        : emit('Payment failed', 'payment_failed');
+    const done = () => emit('Payment completed', 'purchase');
     const o = args[0];
-    if (isRecord(o) && [o.success, o.fail, o.complete].some((f) => typeof f === 'function')) {
+    const callbacks =
+      isRecord(o) && [o.success, o.fail, o.complete].some((f) => typeof f === 'function');
+    if (callbacks) {
       const { success, fail } = o;
       args[0] = {
         ...o,
@@ -235,15 +243,23 @@ export function wrapPayment(original: Fn, report: (action: string, name: string)
           return typeof fail === 'function' ? (fail as Fn).apply(this, r) : undefined;
         },
       };
-      return original.apply(this, args);
     }
     const result = original.apply(this, args);
-    try {
-      if (isRecord(result) && typeof result.then === 'function')
-        (result as unknown as Promise<unknown>).then(done, failed);
-    } catch {
-      // An odd thenable: nothing to observe.
+    report('Payment started', 'begin_checkout');
+    const queued = early;
+    early = undefined;
+    queued.forEach((f) => f());
+    if (!callbacks) {
+      try {
+        // Observing the Promise attaches a rejection handler to it (documented in docs/api.md).
+        if (isRecord(result) && typeof result.then === 'function')
+          (result as unknown as Promise<unknown>).then(done, failed);
+      } catch {
+        // An odd thenable: nothing to observe.
+      }
     }
     return result;
   };
+  Object.defineProperty(wrapper, WRAPPED, { value: true });
+  return wrapper;
 }

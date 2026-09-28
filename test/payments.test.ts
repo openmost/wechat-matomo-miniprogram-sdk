@@ -58,19 +58,38 @@ describe('wrapPayment', () => {
   });
 
   it('lets host callback exceptions propagate after reporting', () => {
-    const { events, pay } = setup((o) => (o as Callbacks).success?.({}));
+    const { events, original, pay } = setup(() => undefined);
     const success = () => {
       throw new Error('host bug');
     };
-    expect(() => pay({ ...params, success })).toThrow('host bug');
+    pay({ ...params, success });
+    // WeChat calls the callbacks later, on its own stack.
+    const wrapped = original.mock.calls[0]?.[0] as Callbacks;
+    expect(() => wrapped.success?.({})).toThrow('host bug');
     expect(events[1]).toEqual(['Payment completed', 'purchase']);
   });
 
-  it('lets a synchronous exception of wx.requestPayment propagate', () => {
-    const { pay } = setup(() => {
+  it('lets a synchronous exception of wx.requestPayment propagate, and reports nothing', () => {
+    const { events, pay } = setup(() => {
       throw new Error('wx');
     });
     expect(() => pay(params)).toThrow('wx');
+    expect(() => pay({ ...params, success: () => undefined })).toThrow('wx');
+    expect(events).toEqual([]);
+  });
+
+  it('reports begin_checkout once wx.requestPayment returned, before an early callback', () => {
+    const { events, pay } = setup((o) => (o as Callbacks).fail?.({ errMsg: 'x:fail cancel' }));
+    pay({ ...params, fail: () => undefined });
+    expect(events).toEqual([STARTED, ['Payment cancelled', 'payment_cancelled']]);
+  });
+
+  it('never wraps an already wrapped wx.requestPayment again', () => {
+    const { events, pay } = setup(() => undefined);
+    const twice = wrapPayment(pay, (action, name) => events.push(['again', action, name]));
+    expect(twice).toBe(pay);
+    twice(params);
+    expect(events).toEqual([STARTED]);
   });
 
   it('leaves promise-style calls untouched and observes the result', async () => {

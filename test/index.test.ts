@@ -890,6 +890,16 @@ describe('Matomo facade', () => {
     ]);
   });
 
+  it('wraps wx.requestPayment only once when several trackers enable trackPayments', () => {
+    wx.requestPayment = () => undefined;
+    init({ trackPayments: true });
+    const wrapped = wx.requestPayment;
+    newTracker().init({ trackerUrl: 'https://s.cn', siteId: 1, trackPayments: true });
+    expect(wx.requestPayment).toBe(wrapped);
+    wx.requestPayment?.({ paySign: 's' });
+    expect(hits().filter((h) => h.e_n === 'begin_checkout')).toHaveLength(1);
+  });
+
   it('leaves wx.requestPayment alone by default and on a crawler launch', () => {
     const original = () => undefined;
     wx.requestPayment = original;
