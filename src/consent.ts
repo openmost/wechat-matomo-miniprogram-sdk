@@ -2,8 +2,14 @@ import type { Platform } from './platform';
 import type { ConsentMode } from './types';
 import { isRecord } from './util';
 
-const TRACKING = 'consent';
-const COOKIE = 'cookie_consent';
+/** Consent kinds, as indexes into the state arrays below. */
+export const enum Kind {
+  Tracking,
+  Cookie,
+}
+
+/** Storage keys of the remembered consents (tracking kept its 0.1.x key). */
+const KEYS = ['consent', 'cookie_consent'];
 
 interface Remembered {
   ts: number;
@@ -13,77 +19,61 @@ interface Remembered {
 /**
  * Same semantics as Matomo JS. Tracking consent: no hit is sent until it is given. Cookie consent
  * ("cookies" = the persistent visitor storage): hits are sent, but nothing is stored until it is
- * given. Tracking consent implies cookie consent. `set*` lasts for the session, `remember*` is
- * stored (optionally for `hoursToExpire`). Opt-out always wins.
+ * given. Tracking consent implies cookie consent. A consent given without `remember` lasts for the
+ * session; a remembered one is stored, optionally for `hoursToExpire`. Opt-out always wins.
  */
 export class Consent {
-  private trackingRequired: boolean;
-  private cookieRequired: boolean;
-  private given: boolean;
-  private cookieGiven: boolean;
+  /** Per kind: is consent required, is it given (session or remembered)? */
+  private readonly required: boolean[];
+  private readonly given: boolean[];
+  private readonly stored: Array<Remembered | undefined> = [];
   private optedOut: boolean;
-  private readonly memo: Record<string, Remembered | undefined> = {};
 
   constructor(
     private readonly platform: Platform,
     mode: ConsentMode,
   ) {
-    this.trackingRequired = mode === 'tracking';
-    this.cookieRequired = mode === 'cookie';
-    this.given = this.load(TRACKING);
-    this.cookieGiven = this.given || this.load(COOKIE);
+    this.required = [mode === 'tracking', mode === 'cookie'];
+    const tracking = this.load(Kind.Tracking);
+    this.given = [tracking, this.load(Kind.Cookie) || tracking];
     this.optedOut = platform.getItem<boolean>('optout') === true;
   }
 
-  requireConsent(): void {
-    this.trackingRequired = true;
+  /** Matomo JS `requireConsent()` / `requireCookieConsent()`. */
+  require(kind: Kind): void {
+    this.required[kind] = true;
   }
 
-  /** Session only; also gives cookie consent. */
-  setConsentGiven(): void {
-    this.given = this.cookieGiven = true;
+  /** Matomo JS `set*ConsentGiven()`, or `remember*ConsentGiven(hoursToExpire)` with `remember`. */
+  give(kind: Kind, remember = false, hoursToExpire?: number): void {
+    if (remember) {
+      const ts = this.platform.now();
+      const r: Remembered = { ts };
+      if (typeof hoursToExpire === 'number' && hoursToExpire > 0 && hoursToExpire < Infinity)
+        r.exp = ts + hoursToExpire * 3_600_000;
+      this.stored[kind] = r;
+      this.platform.setItem(KEYS[kind] as string, r);
+    }
+    this.given[kind] = true;
+    if (kind === Kind.Tracking) this.given[Kind.Cookie] = true;
   }
 
-  rememberConsentGiven(hoursToExpire?: number): void {
-    this.remember(TRACKING, hoursToExpire);
-    this.setConsentGiven();
+  /**
+   * Matomo JS `forget*ConsentGiven()`: withdraws the session and remembered consent and requires it
+   * again; forgetting tracking consent also forgets cookie consent.
+   */
+  forget(kind: Kind): void {
+    this.given[kind] = false;
+    this.required[kind] = true;
+    this.stored[kind] = undefined;
+    this.platform.removeItem(KEYS[kind] as string);
+    if (kind === Kind.Tracking) this.forget(Kind.Cookie);
   }
 
-  /** Like Matomo JS: tracking consent is required again afterwards, and cookie consent is forgotten. */
-  forgetConsentGiven(): void {
-    this.given = false;
-    this.trackingRequired = true;
-    this.forget(TRACKING);
-    this.forgetCookieConsentGiven();
-  }
-
-  hasRememberedConsent(): boolean {
-    return this.getRememberedConsent() !== null;
-  }
-
-  /** Timestamp (ms) of the remembered tracking consent, or null. */
-  getRememberedConsent(): number | null {
-    const r = this.memo[TRACKING];
-    return r && !(r.exp !== undefined && this.platform.now() >= r.exp) ? r.ts : null;
-  }
-
-  requireCookieConsent(): void {
-    this.cookieRequired = true;
-  }
-
-  setCookieConsentGiven(): void {
-    this.cookieGiven = true;
-  }
-
-  rememberCookieConsentGiven(hoursToExpire?: number): void {
-    this.remember(COOKIE, hoursToExpire);
-    this.cookieGiven = true;
-  }
-
-  forgetCookieConsentGiven(): void {
-    this.cookieGiven = false;
-    this.cookieRequired = true;
-    this.forget(COOKIE);
+  /** Timestamp (ms) of the remembered, unexpired tracking consent, or null. */
+  rememberedAt(): number | null {
+    const r = this.stored[Kind.Tracking];
+    return r && !(this.platform.now() >= (r.exp ?? Infinity)) ? r.ts : null;
   }
 
   optOut(): void {
@@ -101,40 +91,29 @@ export class Consent {
   }
 
   canSend(): boolean {
-    return !this.optedOut && (!this.trackingRequired || this.given);
+    return !this.optedOut && this.has(Kind.Tracking);
   }
 
   /** Matomo JS `areCookiesEnabled()`: may the visitor id (and queue) be stored? */
   canPersistVisitor(): boolean {
-    return (!this.trackingRequired || this.given) && (!this.cookieRequired || this.cookieGiven);
+    return this.has(Kind.Tracking) && this.has(Kind.Cookie);
+  }
+
+  private has(kind: Kind): boolean {
+    return !this.required[kind] || this.given[kind] === true;
   }
 
   /** Reads a remembered consent (a bare timestamp in 0.1.x); drops it once expired. */
-  private load(key: string): boolean {
-    const v = this.platform.getItem<unknown>(key);
-    const r: Remembered | undefined =
-      typeof v === 'number'
-        ? { ts: v }
-        : isRecord(v) && typeof v.ts === 'number'
-          ? { ts: v.ts, exp: typeof v.exp === 'number' ? v.exp : undefined }
-          : undefined;
-    if (r?.exp !== undefined && this.platform.now() >= r.exp) this.forget(key);
-    else this.memo[key] = r;
-    return this.memo[key] !== undefined;
-  }
-
-  private remember(key: string, hours?: number): void {
-    const ts = this.platform.now();
-    const r: Remembered =
-      typeof hours === 'number' && hours > 0 && Number.isFinite(hours)
-        ? { ts, exp: ts + hours * 3_600_000 }
-        : { ts };
-    this.memo[key] = r;
-    this.platform.setItem(key, r);
-  }
-
-  private forget(key: string): void {
-    this.memo[key] = undefined;
-    this.platform.removeItem(key);
+  private load(kind: Kind): boolean {
+    const v = this.platform.getItem<unknown>(KEYS[kind] as string);
+    const r = typeof v === 'number' ? { ts: v } : isRecord(v) ? (v as Partial<Remembered>) : {};
+    const exp = typeof r.exp === 'number' ? r.exp : undefined;
+    if (typeof r.ts !== 'number') return false;
+    if (this.platform.now() >= (exp ?? Infinity)) {
+      this.platform.removeItem(KEYS[kind] as string);
+      return false;
+    }
+    this.stored[kind] = { ts: r.ts, exp };
+    return true;
   }
 }

@@ -1,6 +1,6 @@
 import { resolveAttribution } from './attribution';
 import { parseConfig, type MatomoConfig, type MatomoOptions } from './config';
-import { Consent } from './consent';
+import { Consent, Kind } from './consent';
 import { getDeviceContext, type DeviceContext } from './context';
 import { Cart, cartUpdateParams, orderParams, productViewParams } from './ecommerce';
 import { installLifecycle, type LifecycleTarget, type ShareResult } from './lifecycle';
@@ -252,51 +252,51 @@ export class MatomoTracker {
   }
 
   requireConsent(): void {
-    this.consent((c) => c.requireConsent());
+    this.consent((c) => c.require(Kind.Tracking));
   }
 
   setConsentGiven(): void {
-    this.consent((c) => c.setConsentGiven());
+    this.consent((c) => c.give(Kind.Tracking));
   }
 
   rememberConsentGiven(hoursToExpire?: number): void {
-    this.consent((c) => c.rememberConsentGiven(hoursToExpire));
+    this.consent((c) => c.give(Kind.Tracking, true, hoursToExpire));
   }
 
   forgetConsentGiven(): void {
     this.consent((c, s) => {
-      c.forgetConsentGiven(); // also requires tracking consent from now on
+      c.forget(Kind.Tracking); // also requires tracking consent from now on
       s.pending = [];
       s.visitor.reset();
     });
   }
 
   hasRememberedConsent(): boolean {
-    return this.read((c) => c.hasRememberedConsent(), false);
+    return this.getRememberedConsent() !== null;
   }
 
   getRememberedConsent(): number | null {
-    return this.read((c) => c.getRememberedConsent(), null);
+    return this.read((s) => s.consent.rememberedAt(), null);
   }
 
   requireCookieConsent(): void {
-    this.consent((c) => c.requireCookieConsent());
+    this.consent((c) => c.require(Kind.Cookie));
   }
 
   setCookieConsentGiven(): void {
-    this.consent((c) => c.setCookieConsentGiven());
+    this.consent((c) => c.give(Kind.Cookie));
   }
 
   rememberCookieConsentGiven(hoursToExpire?: number): void {
-    this.consent((c) => c.rememberCookieConsentGiven(hoursToExpire));
+    this.consent((c) => c.give(Kind.Cookie, true, hoursToExpire));
   }
 
   forgetCookieConsentGiven(): void {
-    this.consent((c) => c.forgetCookieConsentGiven());
+    this.consent((c) => c.forget(Kind.Cookie));
   }
 
   areCookiesEnabled(): boolean {
-    return this.read((c) => c.canPersistVisitor(), false);
+    return this.read((s) => s.consent.canPersistVisitor(), false);
   }
 
   optOut(): void {
@@ -312,23 +312,15 @@ export class MatomoTracker {
   }
 
   isOptedOut(): boolean {
-    return this.read((c) => c.isOptedOut(), false);
+    return this.read((s) => s.consent.isOptedOut(), false);
   }
 
   flush(): Promise<void> {
-    try {
-      return this.state ? this.state.queue.flush().catch(() => undefined) : Promise.resolve();
-    } catch {
-      return Promise.resolve();
-    }
+    return this.read((s) => s.queue.flush().catch(() => undefined), Promise.resolve());
   }
 
   getVisitorId(): string {
-    try {
-      return this.state?.visitor.id ?? '';
-    } catch {
-      return '';
-    }
+    return this.read((s) => s.visitor.id, '');
   }
 
   private hooks(s: State) {
@@ -462,9 +454,10 @@ export class MatomoTracker {
     });
   }
 
-  private read<T>(get: (c: Consent) => T, fallback: T): T {
+  /** Getter counterpart of `run`: `fallback` before init or on error. */
+  private read<T>(get: (s: State) => T, fallback: T): T {
     try {
-      return this.state ? get(this.state.consent) : fallback;
+      return this.state ? get(this.state) : fallback;
     } catch {
       return fallback;
     }
