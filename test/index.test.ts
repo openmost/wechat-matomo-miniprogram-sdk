@@ -66,7 +66,7 @@ describe('Matomo facade', () => {
       action_name: 'pages/index/index',
       url: 'app://wx1234567890abcdef/pages/index/index?ref=x&mtm_campaign=wechat_share&mtm_source=wechat&mtm_medium=share&mtm_kwd=1007',
       lang: 'zh-CN',
-      res: '393x852',
+      res: '1179x2556',
     });
     showPage('pages/item/item');
     expect(last().url).toBe('app://wx1234567890abcdef/pages/item/item');

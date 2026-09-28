@@ -41,11 +41,13 @@ export function buildUserAgent(s: SystemSnapshot): string {
 
 export function getDeviceContext(platform: Platform): DeviceContext {
   const s = platform.system();
+  // Physical pixels, like Matomo JS (screen size × devicePixelRatio).
+  const ratio = s.pixelRatio > 0 ? s.pixelRatio : 1;
   return {
     ua: buildUserAgent(s),
     res:
       s.screenWidth > 0 && s.screenHeight > 0
-        ? `${Math.round(s.screenWidth)}x${Math.round(s.screenHeight)}`
+        ? `${Math.round(s.screenWidth * ratio)}x${Math.round(s.screenHeight * ratio)}`
         : '',
     lang: s.language.replace(/_/g, '-'),
     appId: platform.account().appId,

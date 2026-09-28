@@ -21,13 +21,15 @@ content, navigation and features.
 
 **Data collected:**
 
-- Device model, brand and operating system (e.g. "iPhone 15", iOS 17)
-- WeChat client version and mini program base library version
-- Screen resolution and pixel ratio
+- Device type or model and operating system version (e.g. "iPhone", iOS 17; Android devices report
+  their model name)
+- WeChat client version
+- Screen resolution (in device pixels)
 - System language
-- Pages viewed (route and query string) and navigation timing
+- Pages viewed (route and query string) and the local time of each interaction
 - Events you configure the SDK to track (e.g. button taps, searches, purchases)
-- A randomly generated visitor identifier (not derived from any WeChat account identifier)
+- A randomly generated visitor identifier (not derived from any WeChat account identifier), with the
+  number and time of previous visits
 - The WeChat "scene" value describing how the mini program was opened (e.g. scan, share, search), used
   only to attribute traffic sources
 
@@ -70,13 +72,13 @@ deletion request.
 
 **收集的信息：**
 
-- 设备品牌、型号及操作系统（例如 "iPhone 15"、iOS 17）
-- 微信客户端版本及小程序基础库版本
-- 屏幕分辨率与像素比
+- 设备类型或型号及操作系统版本（例如 "iPhone"、iOS 17；安卓设备会上报其型号名称）
+- 微信客户端版本
+- 屏幕分辨率（按设备物理像素计）
 - 系统语言
-- 访问的页面（路由与查询参数）及导航时长
+- 访问的页面（路由与查询参数）及每次交互的本地时间
 - 你配置本 SDK 追踪的自定义事件（如按钮点击、搜索、下单等）
-- 随机生成的访客标识符（非基于任何微信账号标识生成）
+- 随机生成的访客标识符（非基于任何微信账号标识生成），以及此前访问的次数与时间
 - 描述小程序打开方式的微信 "场景值"（如扫码、分享、搜索），仅用于流量来源归因
 
 **不会收集的信息：** 本 SDK 不会获取或上传用户的微信 `openid`、`unionid`、手机号、精确或大致地理位置、头像、

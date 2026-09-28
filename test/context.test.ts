@@ -58,13 +58,20 @@ describe('buildUserAgent', () => {
 });
 
 describe('getDeviceContext', () => {
-  it('derives res, lang and appId', () => {
+  it('derives res (in device pixels), lang and appId', () => {
     expect(getDeviceContext(createPlatform(createWxMock()))).toEqual({
       ua: expect.stringContaining('iPhone OS 17_4'),
-      res: '393x852',
+      res: '1179x2556',
       lang: 'zh-CN',
       appId: 'wx1234567890abcdef',
     });
+  });
+
+  it('rounds res for fractional pixel ratios, like Matomo JS', () => {
+    const wx = createWxMock({
+      getWindowInfo: () => ({ screenWidth: 393, screenHeight: 873, pixelRatio: 2.75 }),
+    });
+    expect(getDeviceContext(createPlatform(wx)).res).toBe('1081x2401');
   });
 
   it('leaves res empty when the screen size is unknown', () => {
