@@ -45,6 +45,18 @@ describe('Consent', () => {
     expect(c.canSend()).toBe(false);
   });
 
+  it('forgetConsentGiven requires tracking consent again in any mode, like Matomo JS', () => {
+    for (const mode of [false, 'cookie'] as const) {
+      const c = new Consent(setup().platform, mode);
+      c.setConsentGiven();
+      c.forgetConsentGiven();
+      expect(c.mode).toBe('tracking');
+      expect(c.canSend()).toBe(false);
+      c.setConsentGiven();
+      expect(c.canSend()).toBe(true);
+    }
+  });
+
   it('opt-out blocks everything and persists', () => {
     const { platform } = setup();
     const c = new Consent(platform, false);

@@ -258,9 +258,8 @@ export class MatomoTracker {
 
   forgetConsentGiven(): void {
     this.run((s) => {
-      // Matomo JS: forgetConsentGiven() also requires consent from now on.
-      s.consent.requireConsent();
-      s.consent.forgetConsentGiven();
+      s.consent.forgetConsentGiven(); // also requires tracking consent from now on
+
       s.pending = [];
       s.visitor.reset();
       s.visitor.setPersist(s.consent.canPersistVisitor());

@@ -354,6 +354,17 @@ describe('Matomo facade', () => {
     expect([...wx.storage.keys()].filter((k) => k.startsWith(STORAGE_PREFIX))).toEqual([]);
   });
 
+  it('forgetConsentGiven blocks a cookie-consent tracker until consent is given again', () => {
+    init({ requireConsent: 'cookie' });
+    m.setConsentGiven();
+    m.trackEvent('a', 'before');
+    m.forgetConsentGiven();
+    m.trackEvent('a', 'withheld');
+    expect(hits().map((h) => h.e_a)).toEqual(['before']);
+    m.setConsentGiven();
+    expect(hits().map((h) => h.e_a)).toEqual(['before', 'withheld']);
+  });
+
   it('drops NaN numeric params instead of sending the literal "NaN"', () => {
     init();
     m.trackEvent('a', 'b', undefined, NaN);

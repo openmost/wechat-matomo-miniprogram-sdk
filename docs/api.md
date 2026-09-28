@@ -233,10 +233,13 @@ Matomo.setConsentGiven();
 
 ### forgetConsentGiven()
 
-Withdraws consent: like Matomo JS, it first calls `requireConsent()` (so a tracker initialised with
-`requireConsent: false` switches to `'tracking'` mode and stops sending), then clears the stored consent
-flag, discards the hits kept in memory while consent was pending, and resets the visitor ID (a fresh
-visitor ID is generated and no longer persisted).
+Withdraws consent. Like Matomo JS (whose `forgetConsentGiven()` calls `requireConsent()`), the tracker
+then requires tracking consent whatever its mode was — `false`, `'cookie'` or `'tracking'` — so it stops
+sending until `setConsentGiven()` is called again; hits tracked meanwhile are kept in memory as described
+under [requireConsent()](#requireconsent). It also clears the stored consent flag, discards the hits
+already kept in memory, and resets the visitor ID (a fresh visitor ID is generated and no longer
+persisted). The switch lasts for the current session: the next launch uses the `requireConsent` option
+passed to `init` again.
 
 ```js
 Matomo.forgetConsentGiven();

@@ -30,7 +30,9 @@ export class Consent {
     this.platform.setItem('consent', this.platform.now());
   }
 
+  /** Like Matomo JS, tracking consent is required again afterwards, whatever the mode was. */
   forgetConsentGiven(): void {
+    this.currentMode = 'tracking';
     this.given = false;
     this.platform.removeItem('consent');
   }
