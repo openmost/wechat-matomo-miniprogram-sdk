@@ -1,0 +1,16 @@
+{
+  "description": "wechat-matomo-miniprogram-sdk example",
+  "miniprogramRoot": "miniprogram/",
+  "compileType": "miniprogram",
+  "appid": "touristappid",
+  "projectname": "matomo-sdk-example",
+  "setting": {
+    "useCompilerPlugins": ["typescript"],
+    "es6": true,
+    "enhance": true,
+    "minified": true,
+    "urlCheck": true
+  },
+  "libVersion": "3.5.0",
+  "condition": {}
+}

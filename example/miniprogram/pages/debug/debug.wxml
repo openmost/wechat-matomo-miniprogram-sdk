@@ -1,0 +1,14 @@
+<view class="card">
+  <text>Visitor ID: {{visitorId}}</text>
+  <button bindtap="onPageView">trackPageView (manual)</button>
+  <button bindtap="onGoal">trackGoal(1, 9.9)</button>
+  <button bindtap="onLink">trackLink (outlink)</button>
+  <button bindtap="onDownload">trackLink (download)</button>
+  <button bindtap="onRemoveItem">removeEcommerceItem</button>
+  <button bindtap="onClearCart">clearEcommerceCart</button>
+  <button bindtap="onSetUser">setUserId</button>
+  <button bindtap="onResetUser">resetUserId</button>
+  <button bindtap="onSetDimension">setCustomDimension(1)</button>
+  <button bindtap="onDeleteDimension">deleteCustomDimension(1)</button>
+  <button bindtap="onRequireConsent">requireConsent</button>
+</view>

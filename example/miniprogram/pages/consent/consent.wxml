@@ -1,0 +1,7 @@
+<view class="card">
+  <text>Opted out: {{optedOut}}</text>
+  <button bindtap="onGive">Give consent</button>
+  <button bindtap="onForget">Withdraw consent</button>
+  <button bindtap="onOptOut">Opt out</button>
+  <button bindtap="onOptIn">Opt in</button>
+</view>

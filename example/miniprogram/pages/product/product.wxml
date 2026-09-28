@@ -1,0 +1,5 @@
+<view class="card">
+  <text>{{name}} — ¥{{price}}</text>
+  <button bindtap="onAdd">Add to cart</button>
+  <button bindtap="onOrder">Place order</button>
+</view>

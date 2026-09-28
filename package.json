@@ -43,7 +43,8 @@
     "size": "node scripts/check-size.mjs",
     "test": "vitest run",
     "coverage": "vitest run --coverage",
-    "prepublishOnly": "npm run build && npm test && npm run size"
+    "prepublishOnly": "npm run build && npm test && npm run size",
+    "example:sync": "npm run build && node scripts/sync-example.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

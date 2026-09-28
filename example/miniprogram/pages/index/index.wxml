@@ -1,0 +1,9 @@
+<view class="card">
+  <text>Visitor ID: {{visitorId}}</text>
+  <input placeholder="Search products" confirm-type="search" bindconfirm="onSearch" />
+  <button bindtap="onEvent">Track event</button>
+  <button bindtap="onProduct">Open product</button>
+  <button bindtap="onConsent">Privacy settings</button>
+  <button bindtap="onDebug">Debug (all other APIs)</button>
+  <button bindtap="onFlush">Flush queue</button>
+</view>
