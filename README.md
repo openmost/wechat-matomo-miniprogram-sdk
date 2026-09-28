@@ -170,6 +170,9 @@ opened the mini program is mapped to a `wechat_<medium>` campaign (e.g. `wechat_
 30-minute inactivity timeout, matching Matomo JS) — see [`docs/scenes.md`](./docs/scenes.md) for the full
 scene table and precedence rules.
 
+Visits from the WeChat crawler (scene `1129`, 微信爬虫访问, used to index mini program content for search)
+are not tracked at all: no hit is sent and nothing is written to storage.
+
 **Known limitation:** if a page's `onShareAppMessage`/`onShareTimeline` returns `{ promise }` (the async
 form), WeChat uses the value the promise resolves to, not the object the handler returned synchronously —
 so the `mtm_*` share-campaign parameters this SDK appends to the synchronous return value are not applied

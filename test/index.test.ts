@@ -344,6 +344,16 @@ describe('Matomo facade', () => {
     expect(event?.pv_id).toBe(next?.pv_id);
   });
 
+  it('tracks nothing and persists nothing for the WeChat crawler (scene 1129)', async () => {
+    wx.launch = { path: 'pages/index/index', scene: 1129, query: {} };
+    init();
+    showPage('pages/index/index');
+    m.trackEvent('a', 'b');
+    await m.flush();
+    expect(hits()).toEqual([]);
+    expect([...wx.storage.keys()].filter((k) => k.startsWith(STORAGE_PREFIX))).toEqual([]);
+  });
+
   it('drops NaN numeric params instead of sending the literal "NaN"', () => {
     init();
     m.trackEvent('a', 'b', undefined, NaN);

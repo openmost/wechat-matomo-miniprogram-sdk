@@ -19,6 +19,12 @@ without any extra work from the host.
    inactivity timeout, matching Matomo JS) — a hit sent mid-visit (for example after briefly switching to
    another mini program and back) does not re-attribute the visit.
 
+## WeChat crawler (scene 1129)
+
+When the launch or enter scene is `1129` (微信爬虫访问 — WeChat's crawler opening pages to index them for
+search), the SDK tracks nothing: every hit is dropped and nothing is written to storage, so crawler
+visits never inflate your Matomo reports.
+
 ## Adding `mtm_campaign` to QR codes / mini program codes
 
 Scenes such as `1011`–`1013` (QR code) and `1047`–`1049` (mini program code) do not, by themselves, tell
@@ -84,7 +90,7 @@ as direct/none, same as Matomo's default for a URL with no campaign parameters).
 | 1103 | 发现-小程序主入口我的小程序 | — (direct) | — (direct) |
 | 1104 | 微信聊天主界面下拉，「我的小程序」栏 | — (direct) | — (direct) |
 | 1106 | 聊天主界面下拉，从顶部搜索结果页打开小程序 | wechat_search | search |
-| 1129 | 微信爬虫访问 | wechat_crawler | crawler |
+| 1129 | 微信爬虫访问 | — (not tracked) | — (not tracked) |
 | 1154 | 朋友圈内打开「单页模式」 | wechat_share_timeline | share_timeline |
 | 1155 | 「单页模式」打开小程序 | wechat_share_timeline | share_timeline |
 | 1167 | H5 通过开放标签打开小程序 | wechat_web | web |

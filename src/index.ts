@@ -48,6 +48,10 @@ interface State {
 
 const MAX_BUFFER = 100;
 const MAX_PENDING = 100;
+/** WeChat crawler (微信爬虫访问): indexing visits are not tracked. */
+const CRAWLER_SCENE = 1129;
+const isCrawler = (p: Platform): boolean =>
+  p.launchOptions()?.scene === CRAWLER_SCENE || p.enterOptions()?.scene === CRAWLER_SCENE;
 const nonEmpty = (v: unknown): v is string => typeof v === 'string' && v.trim() !== '';
 
 export class MatomoTracker {
@@ -379,7 +383,7 @@ export class MatomoTracker {
     specific: Params,
     opts: { attribute?: boolean; onSent?: () => void } = {},
   ): void {
-    if (s.config.disabled || s.consent.isOptedOut()) return;
+    if (s.config.disabled || s.consent.isOptedOut() || isCrawler(s.platform)) return;
     // Past the opt-out check, `canSend()` is only false while 'tracking' consent is pending.
     const pending = !s.consent.canSend();
     const attribute = opts.attribute ?? true;
