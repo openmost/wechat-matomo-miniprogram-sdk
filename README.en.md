@@ -65,7 +65,7 @@ The host adds the tracker domain to 开发管理 → 服务器域名 → **reque
 | `autoTrackPages`   | boolean                           | `true`           | wrap `App` / `Page` / `Component`                                                   |
 | `pageTitles`       | `Record<string,string>`           | `{}`             | route → title; else `navigationBarTitleText`-agnostic route                         |
 | `excludedRoutes`   | string[]                          | `[]`             | route prefix match (leading `/` ignored), e.g. `pages/debug/`                       |
-| `trackShares`      | boolean                           | `true`           | event on `onShareAppMessage` / `onShareTimeline`                                    |
+| `trackShares`      | boolean                           | `true`           | `Share` / `Share to chat` or `Share to Moments` / `share` event                     |
 | `shareCampaign`    | string \| false                   | `'wechat_share'` | appended to share path as `mtm_campaign`                                            |
 | `trackScenes`      | boolean                           | `true`           | map entry scene to campaign/referrer                                                |
 | `requireConsent`   | `false \| 'tracking' \| 'cookie'` | `false`          | mirrors Matomo JS consent modes                                                     |

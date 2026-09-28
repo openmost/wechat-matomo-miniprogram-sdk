@@ -63,7 +63,7 @@ App({/* 不變 */});
 | `autoTrackPages`   | boolean                           | `true`           | 包裝 `App` / `Page` / `Component`                                                            |
 | `pageTitles`       | `Record<string,string>`           | `{}`             | 路由 → 標題；未設定時使用路由本身（與 `navigationBarTitleText` 無關）                        |
 | `excludedRoutes`   | string[]                          | `[]`             | 路由前綴比對（忽略開頭的 `/`），如 `pages/debug/`                                            |
-| `trackShares`      | boolean                           | `true`           | 在 `onShareAppMessage` / `onShareTimeline` 上傳送事件                                        |
+| `trackShares`      | boolean                           | `true`           | 分享時傳送 `Share` / `Share to chat` 或 `Share to Moments` / `share` 事件                    |
 | `shareCampaign`    | string \| false                   | `'wechat_share'` | 以 `mtm_campaign` 形式附加到分享路徑                                                         |
 | `trackScenes`      | boolean                           | `true`           | 將入口場景值對應為行銷活動/來源                                                              |
 | `requireConsent`   | `false \| 'tracking' \| 'cookie'` | `false`          | 與 Matomo JS 的同意模式語義一致                                                              |

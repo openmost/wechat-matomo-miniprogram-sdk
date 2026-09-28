@@ -360,11 +360,12 @@ export class MatomoTracker {
     route: string,
     result: ShareResult | undefined,
   ): ShareResult | undefined {
+    // GA4 style: readable action, recommended event name `share` (the page is in the hit URL).
     if (s.config.trackShares)
       this.track(s, {
         e_c: 'Share',
-        e_a: kind === 'chat' ? 'share_app_message' : 'share_timeline',
-        e_n: route,
+        e_a: kind === 'chat' ? 'Share to chat' : 'Share to Moments',
+        e_n: 'share',
       });
     if (s.config.shareCampaign === false) return result;
     const params = {

@@ -217,7 +217,12 @@ describe('Matomo facade', () => {
       title: 'T',
       query: 'id=7&mtm_campaign=wechat_share&mtm_source=wechat&mtm_medium=share_timeline',
     });
-    expect(last()).toMatchObject({ e_c: 'Share', e_a: 'share_timeline', e_n: 'pages/item/item' });
+    const shares = hits().filter((h) => h.e_c === 'Share');
+    expect(shares.map((h) => [h.e_a, h.e_n])).toEqual([
+      ['Share to chat', 'share'],
+      ['Share to Moments', 'share'],
+    ]);
+    expect(last().url).toContain('pages/item/item');
   });
 
   it('keeps the page query on a timeline share when the host returns no query', () => {
@@ -445,8 +450,8 @@ describe('Matomo facade', () => {
     expect(result).toEqual({ title: 'T' });
     expect(last()).toMatchObject({
       e_c: 'Share',
-      e_a: 'share_app_message',
-      e_n: 'pages/item/item',
+      e_a: 'Share to chat',
+      e_n: 'share',
     });
   });
 
