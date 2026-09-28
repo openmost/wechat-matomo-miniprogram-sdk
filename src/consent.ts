@@ -10,6 +10,8 @@ export const enum Kind {
 
 /** Storage keys of the remembered consents (tracking kept its 0.1.x key). */
 const KEYS = ['consent', 'cookie_consent'];
+/** Matomo JS `mtm_consent_removed`: tracking consent was withdrawn and not given since. */
+const REMOVED = 'consent_removed';
 
 interface Remembered {
   ts: number;
@@ -33,8 +35,12 @@ export class Consent {
     private readonly platform: Platform,
     mode: ConsentMode,
   ) {
-    this.required = [mode === 'tracking', mode === 'cookie'];
-    const tracking = this.load(Kind.Tracking);
+    // A withdrawn consent requires tracking consent again, whatever the mode, and voids any
+    // remembered one (Matomo JS `getRememberedConsent()` deletes it too).
+    const removed = platform.getItem<unknown>(REMOVED) !== undefined;
+    if (removed) platform.removeItem(KEYS[Kind.Tracking] as string);
+    this.required = [removed || mode === 'tracking', mode === 'cookie'];
+    const tracking = !removed && this.load(Kind.Tracking);
     this.given = [tracking, this.load(Kind.Cookie) || tracking];
     this.optedOut = platform.getItem<boolean>('optout') === true;
   }
@@ -55,24 +61,36 @@ export class Consent {
       this.platform.setItem(KEYS[kind] as string, r);
     }
     this.given[kind] = true;
-    if (kind === Kind.Tracking) this.given[Kind.Cookie] = true;
+    if (kind === Kind.Tracking) {
+      this.given[Kind.Cookie] = true;
+      this.platform.removeItem(REMOVED);
+    }
   }
 
   /**
    * Matomo JS `forget*ConsentGiven()`: withdraws the session and remembered consent and requires it
-   * again; forgetting tracking consent also forgets cookie consent.
+   * again; forgetting tracking consent also forgets cookie consent, and is remembered (next launches
+   * require tracking consent too) until tracking consent is given.
    */
   forget(kind: Kind): void {
     this.given[kind] = false;
     this.required[kind] = true;
     this.stored[kind] = undefined;
     this.platform.removeItem(KEYS[kind] as string);
-    if (kind === Kind.Tracking) this.forget(Kind.Cookie);
+    if (kind === Kind.Tracking) {
+      this.platform.setItem(REMOVED, this.platform.now());
+      this.forget(Kind.Cookie);
+    }
   }
 
-  /** Timestamp (ms) of the remembered, unexpired tracking consent, or null. */
-  rememberedAt(): number | null {
-    const r = this.stored[Kind.Tracking];
+  /** Matomo JS `isConsentRequired()`: is tracking consent required? */
+  isRequired(): boolean {
+    return this.required[Kind.Tracking] === true;
+  }
+
+  /** Timestamp (ms) of the remembered, unexpired consent of that kind, or null. */
+  rememberedAt(kind: Kind): number | null {
+    const r = this.stored[kind];
     return r && !(this.platform.now() >= (r.exp ?? Infinity)) ? r.ts : null;
   }
 

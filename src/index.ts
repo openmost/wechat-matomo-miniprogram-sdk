@@ -291,7 +291,11 @@ export class MatomoTracker {
   }
 
   getRememberedConsent(): number | null {
-    return this.read((s) => s.consent.rememberedAt(), null);
+    return this.read((s) => s.consent.rememberedAt(Kind.Tracking), null);
+  }
+
+  isConsentRequired(): boolean {
+    return this.read((s) => s.consent.isRequired(), false);
   }
 
   requireCookieConsent(): void {
@@ -308,6 +312,10 @@ export class MatomoTracker {
 
   forgetCookieConsentGiven(): void {
     this.consent((c) => c.forget(Kind.Cookie));
+  }
+
+  getRememberedCookieConsent(): number | null {
+    return this.read((s) => s.consent.rememberedAt(Kind.Cookie), null);
   }
 
   areCookiesEnabled(): boolean {
@@ -432,6 +440,8 @@ export class MatomoTracker {
       url = withQuery(url, s.attribution);
     if (attribute) s.attribution = undefined;
     const now = s.platform.now();
+    // Matomo JS adds consent=1 when consent is required and given (read by log analytics).
+    const consent = !pending && s.consent.isRequired() ? 1 : undefined;
     const hit = buildHit(
       {
         siteId: s.config.siteId,
@@ -445,7 +455,7 @@ export class MatomoTracker {
         now,
         random: () => s.platform.random(),
       },
-      { pv_id: s.pageViewId, ...specific },
+      { pv_id: s.pageViewId, ...specific, consent },
     );
     if (!pending) s.queue.enqueue(hit, now);
     else if (s.pending.push({ q: hit, ts: now }) > MAX_PENDING) s.pending.shift();
@@ -468,7 +478,8 @@ export class MatomoTracker {
       if (!send) return;
       const pending = s.pending;
       s.pending = [];
-      pending.forEach((hit) => s.queue.enqueue(hit.q, hit.ts));
+      // Kept while tracking consent was pending, so consent is required and now given.
+      pending.forEach((hit) => s.queue.enqueue(`${hit.q}&consent=1`, hit.ts));
     });
   }
 

@@ -630,7 +630,7 @@ describe('Matomo facade', () => {
     m.forgetConsentGiven();
     expect(m.hasRememberedConsent()).toBe(false);
     expect(m.areCookiesEnabled()).toBe(false);
-    expect(stored()).toEqual([]);
+    expect(stored()).toEqual([`${STORAGE_PREFIX}consent_removed`]);
   });
 
   it('optOut wins over remembered consent', () => {
@@ -780,6 +780,71 @@ describe('Matomo facade', () => {
     expect(next.areCookiesEnabled()).toBe(false);
     m.optIn();
     expect(m.areCookiesEnabled()).toBe(true);
+  });
+
+  it('forgetConsentGiven still blocks sending at the next launch, until consent is given', async () => {
+    init();
+    m.forgetConsentGiven();
+    expect(stored()).toEqual([`${STORAGE_PREFIX}consent_removed`]);
+    vi.clearAllTimers();
+    const next = newTracker();
+    next.init({ trackerUrl: 'https://s.cn', siteId: 1 });
+    expect(next.isConsentRequired()).toBe(true);
+    next.trackEvent('a', 'withheld');
+    await next.flush();
+    expect(sent()).toEqual([]);
+    next.setConsentGiven();
+    await next.flush();
+    expect(sent()).toHaveLength(1);
+    expect(stored()).not.toContain(`${STORAGE_PREFIX}consent_removed`);
+    vi.clearAllTimers();
+    const later = newTracker();
+    later.init({ trackerUrl: 'https://s.cn', siteId: 1 });
+    expect(later.isConsentRequired()).toBe(false);
+    later.trackEvent('a', 'sent');
+    await later.flush();
+    expect(sent()).toHaveLength(2);
+  });
+
+  it('isConsentRequired reports whether tracking consent is required', () => {
+    expect(m.isConsentRequired()).toBe(false);
+    init({ requireConsent: 'cookie' });
+    expect(m.isConsentRequired()).toBe(false);
+    m.requireConsent();
+    expect(m.isConsentRequired()).toBe(true);
+    const t = newTracker();
+    t.init(TRACKING);
+    expect(t.isConsentRequired()).toBe(true);
+    t.setConsentGiven();
+    expect(t.isConsentRequired()).toBe(true);
+  });
+
+  it('getRememberedCookieConsent returns the time cookie consent was remembered', () => {
+    expect(m.getRememberedCookieConsent()).toBeNull();
+    init({ requireConsent: 'cookie' });
+    expect(m.getRememberedCookieConsent()).toBeNull();
+    m.setCookieConsentGiven();
+    expect(m.getRememberedCookieConsent()).toBeNull();
+    m.rememberCookieConsentGiven(1);
+    expect(m.getRememberedCookieConsent()).toBe(now);
+    now += 3_600_000;
+    expect(m.getRememberedCookieConsent()).toBeNull();
+    m.rememberCookieConsentGiven();
+    m.forgetCookieConsentGiven();
+    expect(m.getRememberedCookieConsent()).toBeNull();
+  });
+
+  it('sends consent=1 once tracking consent is required and given, like Matomo JS', () => {
+    init({ requireConsent: 'tracking' });
+    m.trackEvent('a', 'pending');
+    m.setConsentGiven();
+    m.trackEvent('a', 'given');
+    expect(hits().map((h) => h.consent)).toEqual(['1', '1']);
+    const free = newTracker();
+    wx.storage.clear();
+    free.init({ trackerUrl: 'https://s.cn', siteId: 1, requireConsent: 'cookie', batchSize: 50 });
+    free.trackEvent('a', 'b');
+    expect(hits().some((h) => h.e_a === 'b' && 'consent' in h)).toBe(false);
   });
 
   it('consent getters never throw', () => {

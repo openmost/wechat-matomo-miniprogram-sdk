@@ -27,7 +27,7 @@ describe('Consent', () => {
     expect(c.canSend()).toBe(true);
     expect(c.canPersistVisitor()).toBe(true);
     expect(wx.storage.has(`${STORAGE_PREFIX}consent`)).toBe(false);
-    expect(c.rememberedAt()).toBeNull();
+    expect(c.rememberedAt(Kind.Tracking)).toBeNull();
     expect(new Consent(platform, 'tracking').canSend()).toBe(false);
   });
 
@@ -36,15 +36,15 @@ describe('Consent', () => {
     const c = new Consent(platform, 'tracking');
     c.give(Kind.Tracking, true);
     expect(c.canSend()).toBe(true);
-    expect(c.rememberedAt()).not.toBeNull();
-    expect(c.rememberedAt()).toBe(1000);
+    expect(c.rememberedAt(Kind.Tracking)).not.toBeNull();
+    expect(c.rememberedAt(Kind.Tracking)).toBe(1000);
     const next = new Consent(platform, 'tracking');
     expect(next.canSend()).toBe(true);
     expect(next.canPersistVisitor()).toBe(true);
     next.forget(Kind.Tracking);
     expect(next.canSend()).toBe(false);
-    expect(next.rememberedAt()).toBeNull();
-    expect(next.rememberedAt()).toBeNull();
+    expect(next.rememberedAt(Kind.Tracking)).toBeNull();
+    expect(next.rememberedAt(Kind.Tracking)).toBeNull();
     expect(wx.storage.has(`${STORAGE_PREFIX}consent`)).toBe(false);
     expect(new Consent(platform, 'tracking').canSend()).toBe(false);
   });
@@ -55,12 +55,12 @@ describe('Consent', () => {
     clock.t += 2 * HOUR - 1;
     const early = new Consent(platform, 'tracking');
     expect(early.canSend()).toBe(true);
-    expect(early.rememberedAt()).toBe(1000);
+    expect(early.rememberedAt(Kind.Tracking)).toBe(1000);
     clock.t += 1;
     // The running session keeps its consent, but the remembered one is gone.
     expect(early.canSend()).toBe(true);
-    expect(early.rememberedAt()).toBeNull();
-    expect(early.rememberedAt()).toBeNull();
+    expect(early.rememberedAt(Kind.Tracking)).toBeNull();
+    expect(early.rememberedAt(Kind.Tracking)).toBeNull();
     const late = new Consent(platform, 'tracking');
     expect(late.canSend()).toBe(false);
     expect(wx.storage.has(`${STORAGE_PREFIX}consent`)).toBe(false);
@@ -80,7 +80,7 @@ describe('Consent', () => {
     wx.storage.set(`${STORAGE_PREFIX}consent`, 42);
     const c = new Consent(platform, 'tracking');
     expect(c.canSend()).toBe(true);
-    expect(c.rememberedAt()).toBe(42);
+    expect(c.rememberedAt(Kind.Tracking)).toBe(42);
   });
 
   it('ignores a malformed remembered value', () => {
@@ -177,6 +177,30 @@ describe('Consent', () => {
       expect(c.canSend()).toBe(true);
       expect(c.canPersistVisitor()).toBe(true);
     }
+  });
+
+  it('persists a withdrawn consent until tracking consent is given, like mtm_consent_removed', () => {
+    const { wx, platform } = setup();
+    const c = new Consent(platform, false);
+    c.give(Kind.Tracking, true);
+    c.forget(Kind.Tracking);
+    expect(wx.storage.has(`${STORAGE_PREFIX}consent_removed`)).toBe(true);
+    const next = new Consent(platform, false);
+    expect(next.isRequired()).toBe(true);
+    expect(next.canSend()).toBe(false);
+    expect(next.rememberedAt(Kind.Tracking)).toBeNull();
+    next.give(Kind.Tracking);
+    expect(wx.storage.has(`${STORAGE_PREFIX}consent_removed`)).toBe(false);
+    expect(new Consent(platform, false).canSend()).toBe(true);
+  });
+
+  it('ignores a remembered consent left next to a withdrawal flag', () => {
+    const { wx, platform } = setup();
+    wx.storage.set(`${STORAGE_PREFIX}consent`, { ts: 5 });
+    wx.storage.set(`${STORAGE_PREFIX}consent_removed`, 6);
+    const c = new Consent(platform, 'tracking');
+    expect(c.canSend()).toBe(false);
+    expect(wx.storage.has(`${STORAGE_PREFIX}consent`)).toBe(false);
   });
 
   it('opt-out blocks everything, wins over consent and persists', () => {

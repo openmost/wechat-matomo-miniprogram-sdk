@@ -34,10 +34,12 @@ in order, right after a successful `init`. A second call to `init` is ignored.
 - [forgetConsentGiven()](#forgetconsentgiven)
 - [hasRememberedConsent()](#hasrememberedconsent)
 - [getRememberedConsent()](#getrememberedconsent)
+- [isConsentRequired()](#isconsentrequired)
 - [requireCookieConsent()](#requirecookieconsent)
 - [setCookieConsentGiven()](#setcookieconsentgiven)
 - [rememberCookieConsentGiven(hoursToExpire?)](#remembercookieconsentgivenhourstoexpire)
 - [forgetCookieConsentGiven()](#forgetcookieconsentgiven)
+- [getRememberedCookieConsent()](#getrememberedcookieconsent)
 - [areCookiesEnabled()](#arecookiesenabled)
 - [optOut()](#optout)
 - [optIn()](#optin)
@@ -277,7 +279,11 @@ that is the visitor ID with its visit counters and the offline queue of unsent h
   every launch after checking your own consent record, or use `remember*ConsentGiven()`.
 - `remember*ConsentGiven(hoursToExpire?)` also stores the consent on the device, so later launches start
   with consent. Without `hoursToExpire` (or with a value that is not a positive number) it never expires.
-- `forget*ConsentGiven()` withdraws both the session and the remembered consent.
+- `forget*ConsentGiven()` withdraws both the session and the remembered consent. A withdrawn tracking
+  consent is itself remembered (like the Matomo JS `mtm_consent_removed` cookie): the next launches
+  require tracking consent even with `requireConsent: false`, until tracking consent is given again.
+- Once tracking consent is required and given, hits carry `consent=1`, like Matomo JS (log analytics
+  reads it).
 - `optOut()` always wins, whatever the consent state.
 - No hit leaves the device while tracking consent is pending, not even hits queued earlier with consent
   (e.g. while offline): they are held in memory, their stored copy is removed, and they are sent once
@@ -290,8 +296,8 @@ that is the visitor ID with its visit counters and the offline queue of unsent h
 - The starting mode is the `requireConsent` option of `init`: `'tracking'` behaves like calling
   `requireConsent()`, `'cookie'` like calling `requireCookieConsent()`.
 - Like every method, the consent setters can be called before `init` (they are buffered). The getters
-  (`hasRememberedConsent`, `getRememberedConsent`, `areCookiesEnabled`, `isOptedOut`) return `false` /
-  `null` before `init`.
+  (`hasRememberedConsent`, `getRememberedConsent`, `isConsentRequired`, `getRememberedCookieConsent`,
+  `areCookiesEnabled`, `isOptedOut`) return `false` / `null` before `init`.
 
 Hits tracked while tracking consent is pending are not lost: they are kept in memory only (never written
 to storage, at most 100, oldest dropped first) and sent, in order and with their original time, as soon
@@ -335,8 +341,9 @@ Withdraws tracking consent, whether it was given for the session or remembered. 
 requires tracking consent whatever its mode was, so it stops sending until consent is given again; hits
 tracked meanwhile are kept in memory as described in the [overview](#consent-overview). It also forgets
 cookie consent, removes the stored consent, visitor ID and queue, discards the hits kept in memory, and
-resets the visitor ID. The switch lasts for the current session: the next launch uses the
-`requireConsent` option passed to `init` again.
+resets the visitor ID. The withdrawal is stored on the device (like the Matomo JS
+`mtm_consent_removed` cookie): later launches also require tracking consent, even with
+`requireConsent: false`, until `setConsentGiven()` or `rememberConsentGiven()` is called.
 
 ```js
 Matomo.forgetConsentGiven();
@@ -360,6 +367,18 @@ Returns the time (milliseconds since the epoch) at which the remembered tracking
 
 ```js
 const since = Matomo.getRememberedConsent();
+```
+
+### isConsentRequired()
+
+Returns `true` if tracking consent is required: `requireConsent: 'tracking'`, a call to
+`requireConsent()` or `forgetConsentGiven()`, or a consent withdrawn on an earlier launch. It stays
+`true` once consent is given. `false` before `init`.
+
+```js
+if (Matomo.isConsentRequired() && !Matomo.hasRememberedConsent()) {
+  // show your privacy popup
+}
 ```
 
 ### requireCookieConsent()
@@ -400,6 +419,16 @@ same visitor ID kept in memory for the rest of the session.
 Matomo.forgetCookieConsentGiven();
 ```
 
+### getRememberedCookieConsent()
+
+Returns the time (milliseconds since the epoch) at which cookie consent was remembered with
+`rememberCookieConsentGiven()`, or `null` if there is none, it expired or was forgotten (or before
+`init`). Like Matomo JS, a remembered tracking consent is reported by `getRememberedConsent()` only.
+
+```js
+const since = Matomo.getRememberedCookieConsent();
+```
+
 ### areCookiesEnabled()
 
 Returns `true` if the SDK may currently write to storage (no consent required, or the required consents
@@ -423,7 +452,9 @@ Matomo.optOut();
 
 ### optIn()
 
-Reverses `optOut()`.
+Reverses `optOut()`. It only clears the opt-out flag: unlike Matomo JS `forgetUserOptOut()`, which also
+gives tracking consent (`setConsentGiven(false)`), it gives no consent, so tracking resumes only if no
+consent is pending.
 
 ```js
 Matomo.optIn();
