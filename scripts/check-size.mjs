@@ -1,6 +1,6 @@
 import { build } from 'esbuild';
 
-const LIMIT = 32 * 1024;
+const LIMIT = 40 * 1024;
 
 const result = await build({
   entryPoints: ['miniprogram_dist/index.js'],

@@ -21,7 +21,7 @@ A zero-dependency [Matomo](https://matomo.org) analytics SDK for WeChat mini pro
 - Offline queue with bulk sending, exponential-backoff retry, and a size cap — unsent hits survive
   restarts and long offline periods for up to 23 hours
 - Zero runtime dependencies
-- **< 32 KB minified** (measured 32,391 B)
+- **< 40 KB minified** (measured 32,758 B)
 - Full TypeScript types
 - Works in the WebView and Skyline rendering engines
 
