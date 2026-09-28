@@ -31,6 +31,7 @@ export interface LifecycleHooks {
 type Options = Record<string, unknown>;
 interface PageContext {
   route?: unknown;
+  options?: unknown;
   __mtmQuery?: Record<string, string>;
 }
 type Handler = (this: PageContext, ...args: unknown[]) => unknown;
@@ -55,30 +56,54 @@ function after(original: unknown, hook: (ctx: PageContext) => void): Handler {
   };
 }
 
-function withPageHandlers(handlers: Options, hooks: LifecycleHooks, safe: Safe): Options {
+const PAGE_HANDLERS = [
+  'onLoad',
+  'onShow',
+  'onHide',
+  'onUnload',
+  'onShareAppMessage',
+  'onShareTimeline',
+];
+
+const showHook = (hooks: LifecycleHooks, safe: Safe) => (ctx: PageContext) =>
+  safe(() => {
+    const route = routeOf(ctx);
+    // `this.options` (the page query) covers pages whose onLoad the SDK did not wrap.
+    if (route) hooks.pageShow(route, ctx.__mtmQuery ?? toQuery(ctx.options));
+  });
+
+const hideHook = (hooks: LifecycleHooks, safe: Safe) => (ctx: PageContext) =>
+  safe(() => {
+    const route = routeOf(ctx);
+    if (route) hooks.pageHide(route);
+  });
+
+/**
+ * Wraps page lifecycle handlers. `onlyDefined` (Component pages) wraps only the handlers the host
+ * declared itself: adding a `methods.onShow` would shadow one coming from a behavior.
+ */
+function withPageHandlers(
+  handlers: Options,
+  hooks: LifecycleHooks,
+  safe: Safe,
+  onlyDefined = false,
+): Options {
   const out: Options = { ...handlers };
+  const has = (name: string) => !onlyDefined || typeof handlers[name] === 'function';
   const originalLoad = handlers.onLoad;
-  out.onLoad = function (this: PageContext, ...args: unknown[]) {
-    safe(() => {
-      this.__mtmQuery = toQuery(args[0]);
-    });
-    return typeof originalLoad === 'function'
-      ? (originalLoad as Handler).apply(this, args)
-      : undefined;
-  };
-  out.onShow = after(handlers.onShow, (ctx) =>
-    safe(() => {
-      const route = routeOf(ctx);
-      if (route) hooks.pageShow(route, ctx.__mtmQuery ?? {});
-    }),
-  );
-  const hide = (ctx: PageContext) =>
-    safe(() => {
-      const route = routeOf(ctx);
-      if (route) hooks.pageHide(route);
-    });
-  out.onHide = after(handlers.onHide, hide);
-  out.onUnload = after(handlers.onUnload, hide);
+  if (has('onLoad'))
+    out.onLoad = function (this: PageContext, ...args: unknown[]) {
+      safe(() => {
+        this.__mtmQuery = toQuery(args[0]);
+      });
+      return typeof originalLoad === 'function'
+        ? (originalLoad as Handler).apply(this, args)
+        : undefined;
+    };
+  const hide = hideHook(hooks, safe);
+  if (has('onShow')) out.onShow = after(handlers.onShow, showHook(hooks, safe));
+  if (has('onHide')) out.onHide = after(handlers.onHide, hide);
+  if (has('onUnload')) out.onUnload = after(handlers.onUnload, hide);
 
   for (const [name, kind] of [
     ['onShareAppMessage', 'chat'],
@@ -95,6 +120,31 @@ function withPageHandlers(handlers: Options, hooks: LifecycleHooks, safe: Safe):
       });
       return wrapped;
     };
+  }
+  return out;
+}
+
+/**
+ * Component pages: host-defined `methods.on*` handlers are wrapped; for the ones the host did not
+ * define, the SDK hooks `pageLifetimes.show/hide` and `lifetimes.detached` instead, which WeChat
+ * merges with behaviors rather than overriding them. Components without a route (not pages) are
+ * ignored by the hooks, and their `methods` are never touched.
+ */
+function withComponentHandlers(o: Options, hooks: LifecycleHooks, safe: Safe): Options {
+  const methods = isRecord(o.methods) ? o.methods : {};
+  const defined = (name: string) => typeof methods[name] === 'function';
+  const out: Options = { ...o };
+  if (PAGE_HANDLERS.some(defined)) out.methods = withPageHandlers(methods, hooks, safe, true);
+  const pageLifetimes = isRecord(o.pageLifetimes) ? { ...o.pageLifetimes } : {};
+  const hide = hideHook(hooks, safe);
+  if (!defined('onShow')) pageLifetimes.show = after(pageLifetimes.show, showHook(hooks, safe));
+  if (!defined('onHide')) pageLifetimes.hide = after(pageLifetimes.hide, hide);
+  out.pageLifetimes = pageLifetimes;
+  if (!defined('onUnload')) {
+    const lifetimes = isRecord(o.lifetimes) ? { ...o.lifetimes } : {};
+    // `lifetimes.detached` takes precedence over a top-level `detached`, so chain the latter.
+    lifetimes.detached = after(lifetimes.detached ?? o.detached, hide);
+    out.lifetimes = lifetimes;
   }
   return out;
 }
@@ -123,11 +173,8 @@ export function installLifecycle(
       Page(withPageHandlers(isRecord(options) ? options : {}, hooks, safe));
   }
   if (Component) {
-    target.Component = (options) => {
-      const o = isRecord(options) ? options : {};
-      const methods = isRecord(o.methods) ? o.methods : {};
-      return Component({ ...o, methods: withPageHandlers(methods, hooks, safe) });
-    };
+    target.Component = (options) =>
+      Component(withComponentHandlers(isRecord(options) ? options : {}, hooks, safe));
   }
 
   return () => {

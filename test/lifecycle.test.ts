@@ -119,7 +119,7 @@ describe('installLifecycle', () => {
   it('wraps Component used as a page through methods', () => {
     const { target, registered, hooks } = setup();
     const onShow = vi.fn();
-    target.Component?.({ methods: { onShow, doThing: () => 1 } });
+    target.Component?.({ methods: { onLoad: vi.fn(), onShow, doThing: () => 1 } });
     const methods = registered.components[0]?.methods as Opts;
     const page = { route: 'pages/c/c' };
     call(methods, 'onLoad', page, { x: '1' });
@@ -129,11 +129,53 @@ describe('installLifecycle', () => {
     expect((methods.doThing as Fn).call(page)).toBe(1);
   });
 
-  it('ignores components that are not pages', () => {
+  it('ignores components that are not pages and leaves their methods untouched', () => {
     const { target, registered, hooks } = setup();
+    const methods = { tap: () => 1 };
+    target.Component?.({ methods });
     target.Component?.({});
-    call(registered.components[0]?.methods as Opts, 'onShow', {});
+    expect(registered.components[0]?.methods).toBe(methods);
+    expect(registered.components[1]).not.toHaveProperty('methods');
+    const plain = {}; // a plain component instance has no route
+    call(registered.components[0]?.pageLifetimes as Opts, 'show', plain);
+    call(registered.components[0]?.pageLifetimes as Opts, 'hide', plain);
+    call(registered.components[0]?.lifetimes as Opts, 'detached', plain);
     expect(hooks.pageShow).not.toHaveBeenCalled();
+    expect(hooks.pageHide).not.toHaveBeenCalled();
+  });
+
+  it('keeps behavior-provided lifecycle methods on Component pages', () => {
+    const { target, registered, hooks } = setup();
+    const hostShow = vi.fn();
+    const hostDetached = vi.fn();
+    target.Component?.({
+      behaviors: ['b'],
+      pageLifetimes: { show: hostShow },
+      detached: hostDetached,
+    });
+    const options = registered.components[0] as Opts;
+    // No methods.onShow/onHide/onUnload injected: the behavior's own ones stay in effect.
+    expect(options).not.toHaveProperty('methods');
+    expect(options.behaviors).toEqual(['b']);
+    const page = { route: 'pages/c/c', options: { id: '42' } };
+    call(options.pageLifetimes as Opts, 'show', page);
+    expect(hostShow).toHaveBeenCalled();
+    expect(hooks.pageShow).toHaveBeenCalledWith('pages/c/c', { id: '42' });
+    call(options.pageLifetimes as Opts, 'hide', page);
+    call(options.lifetimes as Opts, 'detached', page);
+    expect(hostDetached).toHaveBeenCalled();
+    expect(hooks.pageHide).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not double track Component pages that define methods.onShow', () => {
+    const { target, registered, hooks } = setup();
+    target.Component?.({ methods: { onShow() {}, onHide() {}, onUnload() {} } });
+    const options = registered.components[0] as Opts;
+    expect(options.pageLifetimes).toEqual({});
+    expect(options).not.toHaveProperty('lifetimes');
+    const page = { route: 'pages/c/c' };
+    call(options.methods as Opts, 'onShow', page);
+    expect(hooks.pageShow).toHaveBeenCalledTimes(1);
   });
 
   it('does not mutate host option objects', () => {
