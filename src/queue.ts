@@ -146,6 +146,7 @@ export class HitQueue {
   }
 
   private persist(): void {
-    this.platform.setItem(KEY, this.hits);
+    // A failed write leaves the previous snapshot behind; drop it so it is not resent next launch.
+    if (!this.platform.setItem(KEY, this.hits)) this.platform.removeItem(KEY);
   }
 }

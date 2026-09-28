@@ -7,7 +7,7 @@ describe('createPlatform', () => {
     const wx = createWxMock();
     const p = createPlatform(wx);
     expect(p.getItem('visitor')).toBeUndefined();
-    p.setItem('visitor', { id: 'a' });
+    expect(p.setItem('visitor', { id: 'a' })).toBe(true);
     expect(wx.storage.get(`${STORAGE_PREFIX}visitor`)).toEqual({ id: 'a' });
     expect(p.getItem('visitor')).toEqual({ id: 'a' });
     p.removeItem('visitor');
@@ -21,7 +21,7 @@ describe('createPlatform', () => {
     const p = createPlatform(
       createWxMock({ getStorageSync: boom, setStorageSync: boom, removeStorageSync: boom }),
     );
-    expect(() => p.setItem('queue', [])).not.toThrow();
+    expect(p.setItem('queue', [])).toBe(false);
     expect(() => p.removeItem('queue')).not.toThrow();
     expect(p.getItem('queue')).toBeUndefined();
   });

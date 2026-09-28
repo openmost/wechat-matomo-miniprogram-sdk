@@ -234,6 +234,19 @@ describe('HitQueue', () => {
     expect(wx.requests).toHaveLength(2);
   });
 
+  it('removes the stale persisted queue when persisting fails', () => {
+    const { wx, queue } = setup();
+    wx.status = 'fail';
+    queue.enqueue('a');
+    expect(wx.storage.has(`${STORAGE_PREFIX}queue`)).toBe(true);
+    wx.setStorageSync = vi.fn(() => {
+      throw new Error('setStorageSync:fail exceed max size');
+    });
+    queue.enqueue('b');
+    expect(wx.storage.has(`${STORAGE_PREFIX}queue`)).toBe(false);
+    expect(queue.size()).toBe(2);
+  });
+
   it('clear empties memory and storage', () => {
     const { wx, queue } = setup();
     wx.status = 'fail';

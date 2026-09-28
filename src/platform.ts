@@ -54,7 +54,8 @@ export const STORAGE_PREFIX = '_mtm_sdk_';
 
 export interface Platform {
   getItem<T>(key: string): T | undefined;
-  setItem(key: string, value: unknown): void;
+  /** Returns false when the write failed (e.g. the 1 MB per-key or 10 MB total limit). */
+  setItem(key: string, value: unknown): boolean;
   removeItem(key: string): void;
   post(options: RequestOptions): Promise<RequestResult>;
   now(): number;
@@ -111,7 +112,10 @@ export function createPlatform(
       }, undefined);
     },
     setItem(key, value) {
-      attempt(() => wx.setStorageSync(STORAGE_PREFIX + key, value), undefined);
+      return attempt(() => {
+        wx.setStorageSync(STORAGE_PREFIX + key, value);
+        return true;
+      }, false);
     },
     removeItem(key) {
       attempt(() => wx.removeStorageSync(STORAGE_PREFIX + key), undefined);
