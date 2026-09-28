@@ -4,6 +4,13 @@ import type { Params } from './types';
 export const VISIT_TIMEOUT_MS = 1_800_000;
 const KEY = 'visitor';
 
+/** What the visitor may do with storage: nothing (stored data removed), read only, or read and write. */
+export const enum Storage {
+  None,
+  Read,
+  Write,
+}
+
 interface VisitorState {
   id: string;
   createdTs: number;
@@ -39,10 +46,11 @@ export class Visitor {
 
   constructor(
     private readonly platform: Platform,
-    private persist: boolean,
+    private storage: Storage,
   ) {
-    const stored = persist ? platform.getItem<unknown>(KEY) : undefined;
+    const stored = storage === Storage.None ? undefined : platform.getItem<unknown>(KEY);
     this.state = isState(stored) ? stored : this.fresh();
+    if (storage === Storage.None) platform.removeItem(KEY);
   }
 
   get id(): string {
@@ -73,10 +81,11 @@ export class Visitor {
     };
   }
 
-  setPersist(persist: boolean): void {
-    this.persist = persist;
-    if (persist) this.save();
-    else this.platform.removeItem(KEY);
+  /** None removes the stored copy; Read keeps it untouched; Write saves the current state. */
+  setStorage(storage: Storage): void {
+    this.storage = storage;
+    if (storage === Storage.None) this.platform.removeItem(KEY);
+    else this.save();
   }
 
   reset(): void {
@@ -96,6 +105,6 @@ export class Visitor {
   }
 
   private save(): void {
-    if (this.persist) this.platform.setItem(KEY, this.state);
+    if (this.storage === Storage.Write) this.platform.setItem(KEY, this.state);
   }
 }

@@ -17,7 +17,7 @@ import {
 } from './request';
 import type { Params } from './types';
 import { guard } from './util';
-import { Visitor, VISIT_TIMEOUT_MS } from './visitor';
+import { Storage, Visitor, VISIT_TIMEOUT_MS } from './visitor';
 
 export type { ConfigError, MatomoConfig, MatomoOptions } from './config';
 
@@ -59,6 +59,9 @@ const readOnly = (p: Platform): Platform =>
 const isCrawler = (p: Platform): boolean =>
   p.launchOptions()?.scene === CRAWLER_SCENE || p.enterOptions()?.scene === CRAWLER_SCENE;
 const nonEmpty = (v: unknown): v is string => typeof v === 'string' && v.trim() !== '';
+/** Stored data is removed without cookie consent or when opted out; read-only while tracking consent is pending. */
+const storageOf = (c: Consent): Storage =>
+  !c.canReadStorage() ? Storage.None : c.canPersistVisitor() ? Storage.Write : Storage.Read;
 
 export class MatomoTracker {
   private state: State | undefined;
@@ -89,18 +92,22 @@ export class MatomoTracker {
       const platform = crawler ? readOnly(deps.platform) : deps.platform;
       const config = parsed.config;
       const consent = new Consent(platform, config.requireConsent);
-      const persist = consent.canPersistVisitor();
+      const storage = storageOf(consent);
       state = {
         config,
         platform,
         consent,
-        visitor: new Visitor(platform, persist),
+        visitor: new Visitor(platform, storage),
+        // While tracking consent is pending, the stored queue is held in memory (never sent) and
+        // its stored copy removed; without cookie consent it is dropped.
         queue: new HitQueue(platform, {
           endpoint: config.trackerUrl + config.trackerPath,
           batchSize: config.batchSize,
           maxQueue: config.maxQueue,
           flushInterval: config.flushInterval,
-          persist,
+          persist: storage === Storage.Write,
+          load: storage !== Storage.None,
+          paused: !consent.canSend(),
         }),
         device: getDeviceContext(platform),
         cart: new Cart(),
@@ -312,6 +319,7 @@ export class MatomoTracker {
       c.optOut();
       s.pending = [];
       s.queue.clear();
+      s.visitor.reset(); // only the opt-out flag stays in storage
     });
   }
 
@@ -446,16 +454,18 @@ export class MatomoTracker {
   }
 
   /**
-   * Runs a consent change, then applies it: storage follows `areCookiesEnabled()`, and hits kept
-   * while tracking consent was pending are queued (in order) once it is given.
+   * Runs a consent change, then applies it: storage follows `storageOf()`, the queue is held while
+   * tracking consent is pending, and hits kept meanwhile are queued (in order) once it is given.
    */
   private consent(change: (c: Consent, s: State) => void): void {
     this.run((s) => {
       change(s.consent, s);
-      const persist = s.consent.canPersistVisitor();
-      s.visitor.setPersist(persist);
-      s.queue.setPersist(persist);
-      if (!s.consent.canSend()) return;
+      const storage = storageOf(s.consent);
+      const send = s.consent.canSend();
+      s.visitor.setStorage(storage);
+      s.queue.setPersist(storage === Storage.Write);
+      s.queue.pause(!send);
+      if (!send) return;
       const pending = s.pending;
       s.pending = [];
       pending.forEach((hit) => s.queue.enqueue(hit.q, hit.ts));

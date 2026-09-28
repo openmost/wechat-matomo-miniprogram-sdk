@@ -264,13 +264,13 @@ The consent API mirrors the [Matomo JavaScript tracker](https://developer.matomo
 A mini program has no cookies: here "cookies" means the SDK's persistent storage (`wx.setStorageSync`),
 that is the visitor ID with its visit counters and the offline queue of unsent hits.
 
-| State                                | Hits sent?                               | Stored on the device?                    |
-| ------------------------------------ | ---------------------------------------- | ---------------------------------------- |
-| No consent required (default)        | yes                                      | yes                                      |
-| Tracking consent required, not given | no — kept in memory (max 100), see below | no                                       |
-| Cookie consent required, not given   | yes                                      | no — visitor ID and queue live in memory |
-| Consent given                        | yes                                      | yes                                      |
-| Opted out (`optOut()`), in any state | no                                       | only the opt-out flag                    |
+| State                                | Hits sent?                               | Stored on the device?                                            |
+| ------------------------------------ | ---------------------------------------- | ---------------------------------------------------------------- |
+| No consent required (default)        | yes                                      | yes                                                              |
+| Tracking consent required, not given | no — kept in memory (max 100), see below | read only — a stored visitor ID is reused but not updated        |
+| Cookie consent required, not given   | yes                                      | no — stored data is removed; visitor ID and queue live in memory |
+| Consent given                        | yes                                      | yes                                                              |
+| Opted out (`optOut()`), in any state | no                                       | only the opt-out flag — visitor ID and queue are removed         |
 
 - Tracking consent implies cookie consent: `setConsentGiven()` also gives cookie consent.
 - `set*ConsentGiven()` lasts for the current session only (Matomo JS: "one-time only"): call it again on
@@ -279,6 +279,14 @@ that is the visitor ID with its visit counters and the offline queue of unsent h
   with consent. Without `hoursToExpire` (or with a value that is not a positive number) it never expires.
 - `forget*ConsentGiven()` withdraws both the session and the remembered consent.
 - `optOut()` always wins, whatever the consent state.
+- No hit leaves the device while tracking consent is pending, not even hits queued earlier with consent
+  (e.g. while offline): they are held in memory, their stored copy is removed, and they are sent once
+  tracking consent is given again. Like Matomo JS, which keeps its `_pk_id` cookie while waiting for
+  consent, a stored visitor ID is reused but not updated, so a user who consents on every launch keeps
+  the same visitor ID.
+- When cookie consent is required and not given at launch (e.g. a remembered cookie consent expired, or
+  `requireConsent: 'cookie'` was just added), the stored visitor ID and queue are removed, like Matomo
+  JS `disableCookies()`.
 - The starting mode is the `requireConsent` option of `init`: `'tracking'` behaves like calling
   `requireConsent()`, `'cookie'` like calling `requireCookieConsent()`.
 - Like every method, the consent setters can be called before `init` (they are buffered). The getters
@@ -293,7 +301,8 @@ mini program is closed before consent.
 ### requireConsent()
 
 Requires tracking consent from now on: no hit is sent until `setConsentGiven()` or
-`rememberConsentGiven()` is called (or tracking consent was remembered on an earlier launch).
+`rememberConsentGiven()` is called (or tracking consent was remembered on an earlier launch). Hits
+already queued are held until then; the stored visitor ID is kept but no longer updated.
 
 ```js
 Matomo.requireConsent();
@@ -394,7 +403,8 @@ Matomo.forgetCookieConsentGiven();
 ### areCookiesEnabled()
 
 Returns `true` if the SDK may currently write to storage (no consent required, or the required consents
-were given). `false` before `init`.
+were given, and not opted out). `false` while tracking or cookie consent is pending, while opted out, and
+before `init`.
 
 ```js
 Matomo.areCookiesEnabled();
@@ -402,8 +412,10 @@ Matomo.areCookiesEnabled();
 
 ### optOut()
 
-Globally opts the current device out of tracking (persisted): no further hits are sent and the pending
-queue is cleared. Independent of `requireConsent`/consent state, and it always wins.
+Globally opts the current device out of tracking (persisted): no further hits are sent, the pending
+queue is cleared, and the stored visitor ID and queue are removed — only the opt-out flag stays on the
+device; a new visitor ID is used after `optIn()`. Independent of `requireConsent`/consent state, and it
+always wins.
 
 ```js
 Matomo.optOut();

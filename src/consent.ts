@@ -94,9 +94,20 @@ export class Consent {
     return !this.optedOut && this.has(Kind.Tracking);
   }
 
-  /** Matomo JS `areCookiesEnabled()`: may the visitor id (and queue) be stored? */
+  /**
+   * May stored visitor data be used? False while opted out or while cookie consent is required and
+   * not given: the stored data is then removed, like Matomo JS `deleteCookies()`.
+   */
+  canReadStorage(): boolean {
+    return !this.optedOut && this.has(Kind.Cookie);
+  }
+
+  /**
+   * Matomo JS `areCookiesEnabled()`: may the visitor id (and queue) be written? While tracking
+   * consent is pending the stored visitor is read but not written, like Matomo JS `_pk_id`.
+   */
   canPersistVisitor(): boolean {
-    return this.has(Kind.Tracking) && this.has(Kind.Cookie);
+    return this.canReadStorage() && this.has(Kind.Tracking);
   }
 
   private has(kind: Kind): boolean {

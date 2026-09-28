@@ -191,9 +191,9 @@ describe('Matomo facade', () => {
     m.trackEvent('a', 'queued');
     m.optOut();
     expect(m.isOptedOut()).toBe(true);
-    expect(wx.storage.get(`${STORAGE_PREFIX}queue`)).toEqual([]);
+    expect(wx.storage.has(`${STORAGE_PREFIX}queue`)).toBe(false);
     m.trackEvent('a', 'blocked');
-    expect(wx.storage.get(`${STORAGE_PREFIX}queue`)).toEqual([]);
+    expect(wx.storage.has(`${STORAGE_PREFIX}queue`)).toBe(false);
     m.optIn();
     m.trackEvent('a', 'back');
     expect(last().e_a).toBe('back');
@@ -366,7 +366,8 @@ describe('Matomo facade', () => {
     m.forgetConsentGiven();
     m.trackEvent('a', 'withheld');
     await m.flush();
-    expect(hits().map((h) => h.e_a)).toEqual(['before']);
+    // Nothing is sent while tracking consent is pending, not even hits queued before.
+    expect(hits()).toEqual([]);
     m.setConsentGiven();
     await m.flush();
     expect(hits().map((h) => h.e_a)).toEqual(['before', 'withheld']);
@@ -471,7 +472,7 @@ describe('Matomo facade', () => {
     m.requireConsent();
     m.trackEvent('a', 'blocked');
     await m.flush();
-    expect(hits().map((h) => h.e_a)).toEqual(['before']);
+    expect(hits()).toEqual([]); // 'before' is held in memory
     m.setConsentGiven();
     m.trackEvent('a', 'after');
     await m.flush();
@@ -520,7 +521,7 @@ describe('Matomo facade', () => {
     m.forgetConsentGiven();
     m.trackEvent('a', 'withheld');
     await m.flush();
-    expect(hits().map((h) => h.e_a)).toEqual(['before']);
+    expect(hits()).toEqual([]);
     m.setConsentGiven();
     await m.flush();
     expect(hits().map((h) => h.e_a)).toEqual(['before', 'withheld']);
@@ -658,6 +659,127 @@ describe('Matomo facade', () => {
     other.rememberCookieConsentGiven();
     other.init({ trackerUrl: 'https://s.cn', siteId: 1 });
     expect(other.areCookiesEnabled()).toBe(false); // tracking consent still pending
+  });
+
+  const TRACKING = { trackerUrl: 'https://s.cn', siteId: 1, requireConsent: 'tracking' } as const;
+  const COOKIE = { trackerUrl: 'https://s.cn', siteId: 1, requireConsent: 'cookie' } as const;
+  const sent = () =>
+    wx.requests.flatMap((r) => (JSON.parse(r.data) as { requests: string[] }).requests);
+
+  it('never sends, nor keeps, a stored queue while tracking consent is pending', async () => {
+    init({ requireConsent: 'tracking' });
+    m.setConsentGiven();
+    wx.status = 'fail';
+    m.trackEvent('a', 'offline');
+    await m.flush();
+    expect(stored()).toContain(`${STORAGE_PREFIX}queue`);
+    wx.status = 200;
+    wx.requests = [];
+    for (let i = 0; i < 3; i++) {
+      vi.clearAllTimers(); // the previous launch has ended
+      newTracker().init(TRACKING);
+      await vi.advanceTimersByTimeAsync(10_000);
+    }
+    expect(wx.requests).toEqual([]);
+    expect(stored()).not.toContain(`${STORAGE_PREFIX}queue`);
+  });
+
+  it('sends a stored hit once when session-only consent is given again at each launch', async () => {
+    init({ requireConsent: 'tracking' });
+    m.setConsentGiven();
+    wx.status = 'fail';
+    m.trackEvent('a', 'offline');
+    await m.flush();
+    wx.status = 200;
+    wx.requests = [];
+    now += 60_000; // past the retry backoff
+    for (let i = 0; i < 3; i++) {
+      vi.clearAllTimers(); // the previous launch has ended
+      const t = newTracker();
+      t.init(TRACKING);
+      await t.flush();
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(sent().filter((q) => q.includes('e_a=offline')).length).toBe(i === 0 ? 0 : 1);
+      t.setConsentGiven();
+      await t.flush();
+    }
+    expect(sent().filter((q) => q.includes('e_a=offline')).length).toBe(1);
+    expect(stored()).not.toContain(`${STORAGE_PREFIX}queue`);
+  });
+
+  it('keeps the stored visitor while tracking consent is pending, without writing it', async () => {
+    const ids: string[] = [];
+    for (let i = 0; i < 4; i++) {
+      const t = newTracker();
+      t.init(TRACKING);
+      const before = wx.storage.get(`${STORAGE_PREFIX}visitor`);
+      now += 3_600_000;
+      t.trackEvent('a', 'pending');
+      expect(wx.storage.get(`${STORAGE_PREFIX}visitor`)).toEqual(before);
+      t.setConsentGiven();
+      await t.flush();
+      ids.push(t.getVisitorId());
+    }
+    expect(new Set(ids).size).toBe(1);
+    expect(new Set(sent().map((q) => /_id=(\w+)/.exec(q)?.[1]))).toEqual(new Set(ids));
+    expect(sent().map((q) => /_idvc=(\d+)/.exec(q)?.[1])).toEqual(['1', '2', '3', '4']);
+  });
+
+  it('runtime requireConsent() keeps the stored visitor', () => {
+    init();
+    m.trackEvent('a', 'b');
+    m.requireConsent();
+    expect(stored()).toContain(`${STORAGE_PREFIX}visitor`);
+  });
+
+  it('wipes stored visitor data at launch when cookie consent is required and not given', async () => {
+    // Remembered cookie consent that has expired by the next launch.
+    const t = newTracker();
+    t.init(COOKIE);
+    t.rememberCookieConsentGiven(1);
+    wx.status = 'fail';
+    t.trackEvent('a', 'offline');
+    await t.flush();
+    const id = t.getVisitorId();
+    expect(stored()).toEqual(expect.arrayContaining([`${STORAGE_PREFIX}visitor`]));
+    now += 3_600_000;
+    wx.status = 200;
+    wx.requests = [];
+    const next = newTracker();
+    next.init(COOKIE);
+    expect(stored()).toEqual([]);
+    expect(next.getVisitorId()).not.toBe(id);
+    await next.flush();
+    expect(sent()).toEqual([]);
+
+    // requireConsent: 'cookie' newly set in the config.
+    init();
+    m.trackEvent('a', 'b');
+    expect(stored()).toContain(`${STORAGE_PREFIX}visitor`);
+    newTracker().init(COOKIE);
+    expect(stored()).toEqual([]);
+  });
+
+  it('optOut removes visitor and queue data and disables storage until optIn', async () => {
+    init();
+    wx.status = 'fail';
+    m.trackEvent('a', 'b');
+    await m.flush();
+    const id = m.getVisitorId();
+    m.optOut();
+    expect(stored()).toEqual([`${STORAGE_PREFIX}optout`]);
+    expect(m.areCookiesEnabled()).toBe(false);
+    expect(m.getVisitorId()).not.toBe(id);
+    m.trackEvent('a', 'blocked');
+    expect(stored()).toEqual([`${STORAGE_PREFIX}optout`]);
+    // A stale visitor left by an older build is wiped at the next launch.
+    wx.storage.set(`${STORAGE_PREFIX}visitor`, { id: '0123456789abcdef' });
+    const next = newTracker();
+    next.init({ trackerUrl: 'https://s.cn', siteId: 1 });
+    expect(stored()).toEqual([`${STORAGE_PREFIX}optout`]);
+    expect(next.areCookiesEnabled()).toBe(false);
+    m.optIn();
+    expect(m.areCookiesEnabled()).toBe(true);
   });
 
   it('consent getters never throw', () => {

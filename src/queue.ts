@@ -9,8 +9,12 @@ export interface QueueOptions {
   maxAttempts?: number;
   maxInFlight?: number;
   timeout?: number;
-  /** Store the queue (default true); off until cookie consent. */
+  /** Store the queue (default true). Off: memory only, and any stored copy is removed. */
   persist?: boolean;
+  /** Load the stored queue (default true); false drops it. */
+  load?: boolean;
+  /** Hold every hit (no send) until `pause(false)`: tracking consent pending. */
+  paused?: boolean;
 }
 
 interface QueuedHit {
@@ -53,18 +57,26 @@ export class HitQueue {
   private readonly maxInFlight: number;
   private readonly timeout: number;
   private persistent: boolean;
+  private paused: boolean;
 
   constructor(
     private readonly platform: Platform,
     private readonly options: QueueOptions,
   ) {
-    const stored = platform.getItem<unknown>(KEY);
+    const stored = options.load === false ? undefined : platform.getItem<unknown>(KEY);
     this.hits = Array.isArray(stored) ? stored.filter(isHit) : [];
     this.maxAge = options.maxAgeMs ?? DEFAULT_MAX_AGE;
     this.maxAttempts = options.maxAttempts ?? 10;
     this.maxInFlight = options.maxInFlight ?? 2;
     this.timeout = options.timeout ?? 10_000;
     this.persistent = options.persist ?? true;
+    this.paused = options.paused ?? false;
+    // A stored copy that can no longer be updated would be sent again at every launch.
+    if (!this.persistent) platform.removeItem(KEY);
+  }
+
+  pause(paused: boolean): void {
+    this.paused = paused;
   }
 
   /** Off: the queue lives in memory only and any stored copy is removed. */
@@ -88,6 +100,7 @@ export class HitQueue {
   }
 
   async flush(): Promise<void> {
+    if (this.paused) return;
     this.prune();
     const sends: Array<Promise<void>> = [];
     while (this.inFlight < this.maxInFlight) {
@@ -160,6 +173,7 @@ export class HitQueue {
   private persist(): void {
     if (!this.persistent) return;
     // A failed write leaves the previous snapshot behind; drop it so it is not resent next launch.
-    if (!this.platform.setItem(KEY, this.hits)) this.platform.removeItem(KEY);
+    if (this.hits.length === 0 || !this.platform.setItem(KEY, this.hits))
+      this.platform.removeItem(KEY);
   }
 }

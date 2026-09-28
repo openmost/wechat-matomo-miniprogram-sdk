@@ -60,7 +60,7 @@ describe('HitQueue', () => {
     expect(wx.requests[0]?.url).toBe('https://stats.example.cn/matomo.php');
     expect(sent(wx)).toEqual(['?idsite=1&a=1', '?idsite=1&a=2']);
     expect(queue.size()).toBe(0);
-    expect(wx.storage.get(`${STORAGE_PREFIX}queue`)).toEqual([]);
+    expect(wx.storage.has(`${STORAGE_PREFIX}queue`)).toBe(false);
   });
 
   it('sends at most batchSize hits per request and maxInFlight requests per flush', async () => {
@@ -286,6 +286,48 @@ describe('HitQueue', () => {
     queue.enqueue('a');
     queue.clear();
     expect(queue.size()).toBe(0);
-    expect(wx.storage.get(`${STORAGE_PREFIX}queue`)).toEqual([]);
+    expect(wx.storage.has(`${STORAGE_PREFIX}queue`)).toBe(false);
+  });
+
+  it('removes the stored queue once every hit is sent', async () => {
+    const { wx, queue, advance } = setup();
+    wx.status = 'fail';
+    queue.enqueue('a');
+    await queue.flush();
+    expect(wx.storage.has(`${STORAGE_PREFIX}queue`)).toBe(true);
+    wx.status = 200;
+    advance(1000);
+    await queue.flush();
+    expect(wx.storage.has(`${STORAGE_PREFIX}queue`)).toBe(false);
+  });
+
+  it('holds hits while paused, even on interval, network and batch triggers', async () => {
+    const { wx, queue } = setup({ batchSize: 1, paused: true });
+    queue.start();
+    queue.enqueue('a');
+    await queue.flush();
+    await vi.advanceTimersByTimeAsync(10_000);
+    wx.emitNetwork(true);
+    expect(wx.requests).toHaveLength(0);
+    queue.pause(false);
+    await queue.flush();
+    expect(sent(wx)).toEqual(['?a']);
+    queue.pause(true);
+    queue.enqueue('b');
+    await queue.flush();
+    expect(wx.requests).toHaveLength(1);
+    queue.stop();
+  });
+
+  it('loads a stored queue into memory only when persistence is off, or ignores it with load: false', () => {
+    const { wx, platform } = setup();
+    const opts = { endpoint: 'e', batchSize: 5, maxQueue: 10, flushInterval: 1000 };
+    const hit = { q: 'old', ts: 1, attempts: 0, nextAt: 0 };
+    wx.storage.set(`${STORAGE_PREFIX}queue`, [hit]);
+    expect(new HitQueue(platform, { ...opts, persist: false }).size()).toBe(1);
+    expect(wx.storage.has(`${STORAGE_PREFIX}queue`)).toBe(false);
+    wx.storage.set(`${STORAGE_PREFIX}queue`, [hit]);
+    expect(new HitQueue(platform, { ...opts, persist: false, load: false }).size()).toBe(0);
+    expect(wx.storage.has(`${STORAGE_PREFIX}queue`)).toBe(false);
   });
 });
