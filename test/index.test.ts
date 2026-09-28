@@ -322,6 +322,28 @@ describe('Matomo facade', () => {
     });
   });
 
+  it('links non-pageview hits to the last pageview with its pv_id', () => {
+    init({ heartbeat: 15 });
+    m.trackEvent('a', 'no-page-yet');
+    const { p, ctx } = showPage('pages/index/index');
+    m.trackEvent('a', 'b');
+    m.trackGoal(1);
+    m.addEcommerceItem('SKU1', 'Tea', 'Drinks', 1, 1);
+    m.trackEcommerceCartUpdate(1);
+    now += 16_000;
+    (p?.onHide as Fn).call(ctx);
+    const [before, view, ...rest] = hits();
+    expect(before).not.toHaveProperty('pv_id');
+    expect(view?.pv_id).toMatch(/^[A-Za-z0-9]{6}$/);
+    expect(rest).toHaveLength(4);
+    for (const hit of rest) expect(hit.pv_id).toBe(view?.pv_id);
+    showPage('pages/item/item');
+    m.trackEvent('a', 'c');
+    const [next, event] = hits().slice(-2);
+    expect(next?.pv_id).not.toBe(view?.pv_id);
+    expect(event?.pv_id).toBe(next?.pv_id);
+  });
+
   it('drops NaN numeric params instead of sending the literal "NaN"', () => {
     init();
     m.trackEvent('a', 'b', undefined, NaN);

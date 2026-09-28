@@ -40,6 +40,8 @@ interface State {
   attribution?: Record<string, string>;
   ecommerceView?: Params;
   lastHitTs: number;
+  /** `pv_id` of the last pageview; other hits carry it like Matomo JS. */
+  pageViewId?: string;
   /** Hits tracked while 'tracking' consent is pending: memory only, like Matomo JS. */
   pending: Array<{ q: string; ts: number }>;
 }
@@ -350,9 +352,10 @@ export class MatomoTracker {
   private pageView(s: State, title?: string, path?: string): void {
     if (nonEmpty(path)) s.current = parsePath(path);
     const route = s.current.route;
+    s.pageViewId = newPageViewId(() => s.platform.random());
     const params: Params = {
       action_name: nonEmpty(title) ? title : (s.config.pageTitles[route] ?? route),
-      pv_id: newPageViewId(() => s.platform.random()),
+      pv_id: s.pageViewId,
       ...s.ecommerceView,
     };
     // Only drop the pending ecommerce view once the hit that carries it is actually enqueued —
@@ -401,7 +404,7 @@ export class MatomoTracker {
         now,
         random: () => s.platform.random(),
       },
-      specific,
+      { pv_id: s.pageViewId, ...specific },
     );
     if (!pending) s.queue.enqueue(hit, now);
     else if (s.pending.push({ q: hit, ts: now }) > MAX_PENDING) s.pending.shift();
