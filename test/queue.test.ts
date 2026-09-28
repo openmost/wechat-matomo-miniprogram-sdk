@@ -119,14 +119,45 @@ describe('HitQueue', () => {
     expect(queue.size()).toBe(0);
   });
 
-  it('drops a hit after maxAttempts', async () => {
+  it('drops a hit after maxAttempts server errors', async () => {
     const { wx, queue, advance } = setup({ maxAttempts: 2 });
-    wx.status = 'fail';
+    wx.status = 503;
     queue.enqueue('a');
     await queue.flush();
     advance(60_000);
     await queue.flush();
     expect(queue.size()).toBe(0);
+  });
+
+  it('keeps hits through a long offline period without counting attempts', async () => {
+    const { wx, queue, advance } = setup({ maxAttempts: 2 });
+    wx.status = 'fail'; // no HTTP status: offline, DNS, domain not allowlisted
+    queue.enqueue('a');
+    for (let i = 0; i < 30; i++) {
+      await queue.flush();
+      advance(60_000);
+    }
+    expect(wx.requests).toHaveLength(30);
+    expect(queue.size()).toBe(1);
+    wx.status = 200;
+    await queue.flush();
+    expect(sent(wx, 30)).toEqual(['?a']);
+    expect(queue.size()).toBe(0);
+  });
+
+  it('still backs off exponentially on transport failures', async () => {
+    const { wx, queue, advance } = setup();
+    wx.status = 'fail';
+    queue.enqueue('a');
+    await queue.flush(); // retry 1 -> wait 1 s
+    advance(1000);
+    await queue.flush(); // retry 2 -> wait 2 s
+    advance(1000);
+    await queue.flush(); // not due yet
+    expect(wx.requests).toHaveLength(2);
+    advance(1000);
+    await queue.flush();
+    expect(wx.requests).toHaveLength(3);
   });
 
   it('drops hits older than 23 hours', async () => {

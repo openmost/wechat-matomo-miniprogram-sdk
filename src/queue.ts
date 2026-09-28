@@ -14,7 +14,10 @@ export interface QueueOptions {
 interface QueuedHit {
   q: string;
   ts: number;
+  /** Server errors so far (counted toward maxAttempts). */
   attempts: number;
+  /** Failed sends of any kind so far (drives the backoff). */
+  retries?: number;
   nextAt: number;
 }
 
@@ -124,8 +127,11 @@ export class HitQueue {
     } else {
       const now = this.platform.now();
       for (const h of batch) {
-        h.attempts += 1;
-        h.nextAt = now + Math.min(60_000, 1000 * 2 ** (h.attempts - 1));
+        h.retries = (h.retries ?? 0) + 1;
+        h.nextAt = now + Math.min(60_000, 1000 * 2 ** (h.retries - 1));
+        // Transport failures (no HTTP status: offline, DNS, domain not allowlisted) keep the hit
+        // until maxAge; only server errors (5xx, 408, 429) count toward maxAttempts.
+        if (result.status !== undefined) h.attempts += 1;
       }
       this.hits = this.hits.filter((h) => h.attempts < this.maxAttempts);
     }
