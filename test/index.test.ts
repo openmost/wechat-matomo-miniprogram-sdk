@@ -354,14 +354,16 @@ describe('Matomo facade', () => {
     expect([...wx.storage.keys()].filter((k) => k.startsWith(STORAGE_PREFIX))).toEqual([]);
   });
 
-  it('forgetConsentGiven blocks a cookie-consent tracker until consent is given again', () => {
+  it('forgetConsentGiven blocks a cookie-consent tracker until consent is given again', async () => {
     init({ requireConsent: 'cookie' });
     m.setConsentGiven();
     m.trackEvent('a', 'before');
     m.forgetConsentGiven();
     m.trackEvent('a', 'withheld');
+    await m.flush();
     expect(hits().map((h) => h.e_a)).toEqual(['before']);
     m.setConsentGiven();
+    await m.flush();
     expect(hits().map((h) => h.e_a)).toEqual(['before', 'withheld']);
   });
 
@@ -448,23 +450,26 @@ describe('Matomo facade', () => {
     });
   });
 
-  it('cookie consent sends hits immediately but persists the visitor only once given', () => {
+  it('cookie consent sends hits immediately but persists the visitor only once given', async () => {
     init({ requireConsent: 'cookie' });
     m.trackEvent('a', 'b');
+    await m.flush();
     expect(hits().map((h) => h.e_a)).toEqual(['b']);
     expect(wx.storage.has(`${STORAGE_PREFIX}visitor`)).toBe(false);
     m.setConsentGiven();
     expect(wx.storage.has(`${STORAGE_PREFIX}visitor`)).toBe(true);
   });
 
-  it('requireConsent() gates a previously unrestricted tracker at runtime', () => {
+  it('requireConsent() gates a previously unrestricted tracker at runtime', async () => {
     init();
     m.trackEvent('a', 'before');
     m.requireConsent();
     m.trackEvent('a', 'blocked');
+    await m.flush();
     expect(hits().map((h) => h.e_a)).toEqual(['before']);
     m.setConsentGiven();
     m.trackEvent('a', 'after');
+    await m.flush();
     expect(hits().map((h) => h.e_a)).toEqual(['before', 'blocked', 'after']);
   });
 
@@ -504,13 +509,162 @@ describe('Matomo facade', () => {
     expect(hits()).toEqual([]);
   });
 
-  it('forgetConsentGiven stops tracking even without requireConsent, like Matomo JS', () => {
+  it('forgetConsentGiven stops tracking even without requireConsent, like Matomo JS', async () => {
     init();
     m.trackEvent('a', 'before');
     m.forgetConsentGiven();
     m.trackEvent('a', 'withheld');
+    await m.flush();
     expect(hits().map((h) => h.e_a)).toEqual(['before']);
     m.setConsentGiven();
+    await m.flush();
     expect(hits().map((h) => h.e_a)).toEqual(['before', 'withheld']);
+  });
+
+  const newTracker = () => {
+    const platform = createPlatform(wx, { now: () => now });
+    return createTracker(() => ({ platform, target }));
+  };
+  const stored = () => [...wx.storage.keys()].filter((k) => k.startsWith(STORAGE_PREFIX));
+
+  it('writes nothing to storage before cookie consent, but still sends hits', async () => {
+    init({ requireConsent: 'cookie' });
+    showPage('pages/index/index');
+    m.trackEvent('a', 'b');
+    await m.flush();
+    expect(hits().map((h) => h.e_a ?? 'pv')).toEqual(['pv', 'b']);
+    expect(wx.setStorageSync).not.toHaveBeenCalled();
+    expect(m.areCookiesEnabled()).toBe(false);
+    const id = m.getVisitorId();
+    wx.status = 'fail';
+    m.trackEvent('a', 'offline');
+    m.setCookieConsentGiven();
+    expect(m.areCookiesEnabled()).toBe(true);
+    expect(m.getVisitorId()).toBe(id);
+    expect(stored()).toEqual([`${STORAGE_PREFIX}visitor`, `${STORAGE_PREFIX}queue`]);
+    expect(wx.storage.get(`${STORAGE_PREFIX}visitor`)).toMatchObject({ id });
+    // Session only: nothing remembered, a new launch asks again.
+    const next = newTracker();
+    next.init({ trackerUrl: 'https://s.cn', siteId: 1, requireConsent: 'cookie' });
+    expect(next.areCookiesEnabled()).toBe(false);
+  });
+
+  it('forgetCookieConsentGiven wipes stored visitor data but keeps sending', async () => {
+    init();
+    wx.status = 'fail';
+    m.trackEvent('a', 'b');
+    await m.flush();
+    expect(stored()).toContain(`${STORAGE_PREFIX}visitor`);
+    const id = m.getVisitorId();
+    m.forgetCookieConsentGiven();
+    expect(m.areCookiesEnabled()).toBe(false);
+    expect(stored()).toEqual([]);
+    expect(m.getVisitorId()).toBe(id);
+    wx.status = 200;
+    m.trackEvent('a', 'after');
+    await m.flush();
+    expect(stored()).toEqual([]);
+    expect(hits().map((h) => h.e_a)).toEqual(['b', 'after']);
+  });
+
+  it('requireCookieConsent at runtime stops storing until cookie consent', () => {
+    init();
+    m.trackEvent('a', 'b');
+    m.requireCookieConsent();
+    expect(stored()).toEqual([]);
+    m.rememberCookieConsentGiven();
+    expect(stored()).toContain(`${STORAGE_PREFIX}visitor`);
+    expect(stored()).toContain(`${STORAGE_PREFIX}cookie_consent`);
+  });
+
+  it('remembers cookie consent across launches until it expires', () => {
+    init({ requireConsent: 'cookie' });
+    m.rememberCookieConsentGiven(1);
+    const next = newTracker();
+    next.init({ trackerUrl: 'https://s.cn', siteId: 1, requireConsent: 'cookie' });
+    expect(next.areCookiesEnabled()).toBe(true);
+    now += 3_600_000;
+    const later = newTracker();
+    later.init({ trackerUrl: 'https://s.cn', siteId: 1, requireConsent: 'cookie' });
+    expect(later.areCookiesEnabled()).toBe(false);
+  });
+
+  it('setConsentGiven lasts for the session; rememberConsentGiven survives a relaunch', async () => {
+    init({ requireConsent: 'tracking' });
+    m.setConsentGiven();
+    expect(m.hasRememberedConsent()).toBe(false);
+    expect(m.getRememberedConsent()).toBeNull();
+    const session = newTracker();
+    session.init({ trackerUrl: 'https://s.cn', siteId: 1, requireConsent: 'tracking' });
+    session.trackEvent('s', 'withheld');
+    await session.flush();
+    expect(hits().some((h) => h.e_c === 's')).toBe(false);
+    m.rememberConsentGiven(24);
+    expect(m.hasRememberedConsent()).toBe(true);
+    expect(m.getRememberedConsent()).toBe(now);
+    const next = newTracker();
+    next.init({ trackerUrl: 'https://s.cn', siteId: 1, requireConsent: 'tracking' });
+    expect(next.hasRememberedConsent()).toBe(true);
+    next.trackEvent('n', 'sent');
+    await next.flush();
+    expect(hits().some((h) => h.e_c === 'n')).toBe(true);
+    now += 24 * 3_600_000;
+    expect(m.hasRememberedConsent()).toBe(false);
+    const expired = newTracker();
+    expired.init({ trackerUrl: 'https://s.cn', siteId: 1, requireConsent: 'tracking' });
+    expired.trackEvent('e', 'withheld');
+    await expired.flush();
+    expect(hits().some((h) => h.e_c === 'e')).toBe(false);
+  });
+
+  it('forgetConsentGiven clears remembered tracking and cookie consent', () => {
+    init({ requireConsent: 'tracking' });
+    m.rememberConsentGiven();
+    m.rememberCookieConsentGiven();
+    m.forgetConsentGiven();
+    expect(m.hasRememberedConsent()).toBe(false);
+    expect(m.areCookiesEnabled()).toBe(false);
+    expect(stored()).toEqual([]);
+  });
+
+  it('optOut wins over remembered consent', () => {
+    init({ requireConsent: 'tracking' });
+    m.rememberConsentGiven();
+    m.optOut();
+    m.trackEvent('a', 'b');
+    expect(hits()).toEqual([]);
+  });
+
+  it('buffers every consent call made before init', () => {
+    expect(m.hasRememberedConsent()).toBe(false);
+    expect(m.getRememberedConsent()).toBeNull();
+    expect(m.areCookiesEnabled()).toBe(false);
+    m.requireCookieConsent();
+    m.setCookieConsentGiven();
+    m.forgetCookieConsentGiven();
+    m.rememberConsentGiven(2);
+    init();
+    expect(m.hasRememberedConsent()).toBe(true);
+    expect(m.areCookiesEnabled()).toBe(true);
+
+    m.forgetConsentGiven();
+    const other = newTracker();
+    other.requireConsent();
+    other.rememberCookieConsentGiven();
+    other.init({ trackerUrl: 'https://s.cn', siteId: 1 });
+    expect(other.areCookiesEnabled()).toBe(false); // tracking consent still pending
+  });
+
+  it('consent getters never throw', () => {
+    const broken = createTracker(() => ({ platform: createPlatform(wx), target }));
+    broken.init({ trackerUrl: 'https://s.cn', siteId: 1 });
+    wx.getStorageSync = () => {
+      throw new Error('boom');
+    };
+    expect(broken.hasRememberedConsent()).toBe(false);
+    (broken as unknown as { state: unknown }).state = {};
+    expect(broken.hasRememberedConsent()).toBe(false);
+    expect(broken.getRememberedConsent()).toBeNull();
+    expect(broken.areCookiesEnabled()).toBe(false);
   });
 });

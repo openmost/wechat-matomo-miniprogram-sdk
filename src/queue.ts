@@ -9,6 +9,8 @@ export interface QueueOptions {
   maxAttempts?: number;
   maxInFlight?: number;
   timeout?: number;
+  /** Store the queue (default true); off until cookie consent. */
+  persist?: boolean;
 }
 
 interface QueuedHit {
@@ -50,6 +52,7 @@ export class HitQueue {
   private readonly maxAttempts: number;
   private readonly maxInFlight: number;
   private readonly timeout: number;
+  private persistent: boolean;
 
   constructor(
     private readonly platform: Platform,
@@ -61,6 +64,14 @@ export class HitQueue {
     this.maxAttempts = options.maxAttempts ?? 10;
     this.maxInFlight = options.maxInFlight ?? 2;
     this.timeout = options.timeout ?? 10_000;
+    this.persistent = options.persist ?? true;
+  }
+
+  /** Off: the queue lives in memory only and any stored copy is removed. */
+  setPersist(persist: boolean): void {
+    this.persistent = persist;
+    if (persist) this.persist();
+    else this.platform.removeItem(KEY);
   }
 
   size(): number {
@@ -147,6 +158,7 @@ export class HitQueue {
   }
 
   private persist(): void {
+    if (!this.persistent) return;
     // A failed write leaves the previous snapshot behind; drop it so it is not resent next launch.
     if (!this.platform.setItem(KEY, this.hits)) this.platform.removeItem(KEY);
   }

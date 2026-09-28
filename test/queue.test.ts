@@ -26,6 +26,31 @@ describe('HitQueue', () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
+  it('keeps hits in memory only while persistence is off, and stores them once it is on', async () => {
+    const { wx, platform, queue } = setup({ persist: false });
+    queue.enqueue('idsite=1&a=1');
+    expect(queue.size()).toBe(1);
+    expect(wx.storage.has(`${STORAGE_PREFIX}queue`)).toBe(false);
+    queue.setPersist(true);
+    expect(wx.storage.get(`${STORAGE_PREFIX}queue`)).toHaveLength(1);
+    queue.setPersist(false);
+    expect(wx.storage.has(`${STORAGE_PREFIX}queue`)).toBe(false);
+    wx.status = 'fail';
+    await queue.flush();
+    expect(wx.storage.has(`${STORAGE_PREFIX}queue`)).toBe(false);
+    expect(queue.size()).toBe(1);
+    wx.storage.set(`${STORAGE_PREFIX}queue`, [{ q: 'old', ts: 0, attempts: 0, nextAt: 0 }]);
+    expect(
+      new HitQueue(platform, {
+        endpoint: 'x',
+        batchSize: 1,
+        maxQueue: 10,
+        flushInterval: 1000,
+        persist: false,
+      }).size(),
+    ).toBe(1);
+  });
+
   it('sends queued hits in one bulk request and empties the queue', async () => {
     const { wx, queue } = setup();
     queue.enqueue('idsite=1&a=1');

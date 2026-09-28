@@ -23,6 +23,8 @@ describe('docs stay in sync with code', () => {
       'heartbeat',
       'track',
       'run',
+      'consent',
+      'read',
       'log',
     ];
     const methods = Object.getOwnPropertyNames(MatomoTracker.prototype).filter(

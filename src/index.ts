@@ -89,16 +89,18 @@ export class MatomoTracker {
       const platform = crawler ? readOnly(deps.platform) : deps.platform;
       const config = parsed.config;
       const consent = new Consent(platform, config.requireConsent);
+      const persist = consent.canPersistVisitor();
       state = {
         config,
         platform,
         consent,
-        visitor: new Visitor(platform, consent.canPersistVisitor()),
+        visitor: new Visitor(platform, persist),
         queue: new HitQueue(platform, {
           endpoint: config.trackerUrl + config.trackerPath,
           batchSize: config.batchSize,
           maxQueue: config.maxQueue,
           flushInterval: config.flushInterval,
+          persist,
         }),
         device: getDeviceContext(platform),
         cart: new Cart(),
@@ -250,50 +252,67 @@ export class MatomoTracker {
   }
 
   requireConsent(): void {
-    this.run((s) => {
-      s.consent.requireConsent();
-      s.visitor.setPersist(s.consent.canPersistVisitor());
-    });
+    this.consent((c) => c.requireConsent());
   }
 
   setConsentGiven(): void {
-    this.run((s) => {
-      s.consent.setConsentGiven();
-      s.visitor.setPersist(true);
-      const pending = s.pending;
-      s.pending = [];
-      pending.forEach((hit) => s.queue.enqueue(hit.q, hit.ts));
-    });
+    this.consent((c) => c.setConsentGiven());
+  }
+
+  rememberConsentGiven(hoursToExpire?: number): void {
+    this.consent((c) => c.rememberConsentGiven(hoursToExpire));
   }
 
   forgetConsentGiven(): void {
-    this.run((s) => {
-      s.consent.forgetConsentGiven(); // also requires tracking consent from now on
-
+    this.consent((c, s) => {
+      c.forgetConsentGiven(); // also requires tracking consent from now on
       s.pending = [];
       s.visitor.reset();
-      s.visitor.setPersist(s.consent.canPersistVisitor());
     });
   }
 
+  hasRememberedConsent(): boolean {
+    return this.read((c) => c.hasRememberedConsent(), false);
+  }
+
+  getRememberedConsent(): number | null {
+    return this.read((c) => c.getRememberedConsent(), null);
+  }
+
+  requireCookieConsent(): void {
+    this.consent((c) => c.requireCookieConsent());
+  }
+
+  setCookieConsentGiven(): void {
+    this.consent((c) => c.setCookieConsentGiven());
+  }
+
+  rememberCookieConsentGiven(hoursToExpire?: number): void {
+    this.consent((c) => c.rememberCookieConsentGiven(hoursToExpire));
+  }
+
+  forgetCookieConsentGiven(): void {
+    this.consent((c) => c.forgetCookieConsentGiven());
+  }
+
+  areCookiesEnabled(): boolean {
+    return this.read((c) => c.canPersistVisitor(), false);
+  }
+
   optOut(): void {
-    this.run((s) => {
-      s.consent.optOut();
+    this.consent((c, s) => {
+      c.optOut();
       s.pending = [];
       s.queue.clear();
     });
   }
 
   optIn(): void {
-    this.run((s) => s.consent.optIn());
+    this.consent((c) => c.optIn());
   }
 
   isOptedOut(): boolean {
-    try {
-      return this.state?.consent.isOptedOut() ?? false;
-    } catch {
-      return false;
-    }
+    return this.read((c) => c.isOptedOut(), false);
   }
 
   flush(): Promise<void> {
@@ -423,6 +442,31 @@ export class MatomoTracker {
     else if (s.pending.push({ q: hit, ts: now }) > MAX_PENDING) s.pending.shift();
     s.lastHitTs = now;
     opts.onSent?.();
+  }
+
+  /**
+   * Runs a consent change, then applies it: storage follows `areCookiesEnabled()`, and hits kept
+   * while tracking consent was pending are queued (in order) once it is given.
+   */
+  private consent(change: (c: Consent, s: State) => void): void {
+    this.run((s) => {
+      change(s.consent, s);
+      const persist = s.consent.canPersistVisitor();
+      s.visitor.setPersist(persist);
+      s.queue.setPersist(persist);
+      if (!s.consent.canSend()) return;
+      const pending = s.pending;
+      s.pending = [];
+      pending.forEach((hit) => s.queue.enqueue(hit.q, hit.ts));
+    });
+  }
+
+  private read<T>(get: (c: Consent) => T, fallback: T): T {
+    try {
+      return this.state ? get(this.state.consent) : fallback;
+    } catch {
+      return fallback;
+    }
   }
 
   private run(call: (s: State) => void): void {
