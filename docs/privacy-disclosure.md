@@ -60,9 +60,12 @@ and safeguards in your privacy policy.
 
 **User control:** users can decline analytics tracking. If [your mini program name] provides a privacy
 consent popup, declining calls `Matomo.optOut()` (or leaves `Matomo.requireConsent()` unresolved),
-which stops all further data collection and clears any data queued but not yet sent. Consent given with
+which stops all further data collection and deletes the stored visitor identifier and any data queued
+but not yet sent (only the opt-out status is kept). Consent given with
 `Matomo.rememberConsentGiven()` is stored on the device (optionally with an expiry) and can be withdrawn at
-any time with `Matomo.forgetConsentGiven()`, which also deletes the stored visitor identifier. Withdrawing
+any time with `Matomo.forgetConsentGiven()`, which also deletes the stored visitor identifier; the
+withdrawal itself is stored on the device, so tracking stays off at later launches until the user agrees
+again. Withdrawing
 consent does not delete data already received by your Matomo server; contact **[your support email]** for
 a deletion request.
 
@@ -109,6 +112,7 @@ a deletion request.
 
 **用户控制：** 用户可以拒绝统计追踪。若【你的小程序名称】提供隐私同意弹窗，用户拒绝时应调用 `Matomo.optOut()`
 （或不调用 `Matomo.setConsentGiven()` 使 `Matomo.requireConsent()` 保持未同意状态），这将停止所有后续数据收集，
-并清除尚未发送的排队数据。通过 `Matomo.rememberConsentGiven()` 给出的同意会保存在设备上（可设置有效期），
-用户可随时通过 `Matomo.forgetConsentGiven()` 撤回，同时会删除已保存的访客标识符。撤回同意不会删除已发送至你的
+并删除已保存的访客标识符及尚未发送的排队数据（仅保留退出追踪状态）。通过 `Matomo.rememberConsentGiven()` 给出的同意会保存在设备上（可设置有效期），
+用户可随时通过 `Matomo.forgetConsentGiven()` 撤回，同时会删除已保存的访客标识符；撤回状态本身会保存在设备上，
+因此在用户再次同意之前，之后的启动也不会进行追踪。撤回同意不会删除已发送至你的
 Matomo 服务器的历史数据；如需删除，请联系 **【你的客服邮箱】**。

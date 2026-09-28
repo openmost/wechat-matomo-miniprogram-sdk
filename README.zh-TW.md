@@ -8,6 +8,10 @@
 
 一個零依賴、專為微信小程式打造的 [Matomo](https://matomo.org) 數據分析 SDK。
 
+> [!TIP]
+> 需要 Matomo 方面的協助嗎？無論是稽核、部署設定、追蹤規劃、資料品質、效能優化、儀表板，
+> 還是在你自己位於中國的伺服器上安裝 Matomo，Matomo 專家 Openmost 都能為你提供協助：https://openmost.com · ronan@openmost.com
+
 ## 特點
 
 - 自動頁面瀏覽統計 —— 包裝 `App`/`Page`/`Component`，不需要在每個頁面手動埋點即可追蹤導覽
@@ -20,7 +24,7 @@
 - 追蹤同意與 Cookie 同意（本次工作階段、帶有效期限的記住、撤回）及退出追蹤 —— 與 Matomo JS 同意 API 一致
 - 離線佇列，支援批次傳送、指數退避重試與容量上限 —— 尚未送出的資料在重新啟動與長時間離線後依然保留，最長 23 小時
 - 零執行期依賴
-- **壓縮後 < 40 KB**（實測 32,758 位元組）
+- **壓縮後 < 40 KB**（實測 33,377 位元組）
 - 完整 TypeScript 型別定義
 - 相容 WebView 與 Skyline 渲染引擎
 
@@ -207,12 +211,15 @@ function onDecline() {
 在同意之前關閉小程式，這些資料也會遺失。
 
 同意 API 與 Matomo JS 一致：追蹤同意（`requireConsent`、`setConsentGiven`、`rememberConsentGiven(hoursToExpire?)`、
-`forgetConsentGiven`、`hasRememberedConsent`、`getRememberedConsent`）與 Cookie 同意（`requireCookieConsent`、
-`setCookieConsentGiven`、`rememberCookieConsentGiven(hoursToExpire?)`、`forgetCookieConsentGiven`、
-`areCookiesEnabled`）。在小程式中，"Cookie" 指 SDK 的本地儲存（訪客 ID 與離線佇列）：使用
-`requireConsent: 'cookie'` 時資料會立即傳送，但在使用者給出 Cookie 同意之前不會寫入任何儲存，
-`forgetCookieConsentGiven()` 會刪除已儲存的資料。追蹤同意包含 Cookie 同意；`set*` 僅在本次工作階段內有效，
-`remember*` 會儲存到裝置上（可設定以小時為單位的有效期限）；`optOut()` 永遠優先。詳見
+`forgetConsentGiven`、`hasRememberedConsent`、`getRememberedConsent`、`isConsentRequired`）與 Cookie 同意
+（`requireCookieConsent`、`setCookieConsentGiven`、`rememberCookieConsentGiven(hoursToExpire?)`、
+`forgetCookieConsentGiven`、`getRememberedCookieConsent`、`areCookiesEnabled`）。在小程式中，"Cookie" 指 SDK
+的本地儲存（訪客 ID 與離線佇列）：使用 `requireConsent: 'cookie'` 時資料會立即傳送，但在使用者給出 Cookie 同意
+之前不會寫入任何儲存；只要缺少 Cookie 同意（呼叫了 `forgetCookieConsentGiven()`，或記住的同意已過期），已儲存
+的資料就會被刪除。追蹤同意包含 Cookie 同意；`set*` 僅在本次工作階段內有效，`remember*` 會儲存到裝置上（可設定
+以小時為單位的有效期限）。在等待追蹤同意期間不會傳送任何資料（包括先前已排入佇列的資料），已儲存的訪客 ID 會
+繼續沿用但不會被更新。`forgetConsentGiven()` 的撤回狀態會儲存在裝置上：之後每次啟動都需要重新取得同意，直到
+使用者再次同意為止。`optOut()` 永遠優先，並會刪除已儲存的訪客 ID 與佇列。詳見
 [同意概覽](./docs/api.md#consent-overview)。
 
 完整 API 請參閱 [`docs/api.md`](./docs/api.md)；此流程具體收集哪些資料，可直接貼到隱私權政策中的文案見

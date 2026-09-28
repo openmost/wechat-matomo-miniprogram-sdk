@@ -8,6 +8,10 @@
 
 面向微信小程序的零依赖 [Matomo](https://matomo.org) 统计分析 SDK。
 
+> [!TIP]
+> 需要 Matomo 方面的帮助吗？无论是审计、部署配置、埋点方案、数据质量、性能优化、数据看板，
+> 还是在你自己位于中国的服务器上安装 Matomo，Matomo 专家 Openmost 都能为你提供支持：https://openmost.com · ronan@openmost.com
+
 ## 特性
 
 - 自动页面访问统计 —— 包装 `App`/`Page`/`Component`，无需在每个页面手动埋点即可追踪导航
@@ -20,7 +24,7 @@
 - 追踪同意与 Cookie 同意（本次会话、带有效期的记住、撤回）及退出追踪 —— 与 Matomo JS 同意 API 一致
 - 离线队列，支持批量发送、指数退避重试与容量上限 —— 未发送的数据在重启和长时间离线后依然保留，最长 23 小时
 - 零运行时依赖
-- **压缩后 < 40 KB**（实测 32,758 字节）
+- **压缩后 < 40 KB**（实测 33,377 字节）
 - 完整 TypeScript 类型定义
 - 兼容 WebView 与 Skyline 渲染引擎
 
@@ -207,13 +211,15 @@ function onDecline() {
 之前关闭了小程序，这些数据也会丢失。
 
 同意 API 与 Matomo JS 一致：追踪同意（`requireConsent`、`setConsentGiven`、`rememberConsentGiven(hoursToExpire?)`、
-`forgetConsentGiven`、`hasRememberedConsent`、`getRememberedConsent`）与 Cookie 同意（`requireCookieConsent`、
-`setCookieConsentGiven`、`rememberCookieConsentGiven(hoursToExpire?)`、`forgetCookieConsentGiven`、
-`areCookiesEnabled`）。在小程序中，"Cookie" 指 SDK 的本地存储（访客 ID 与离线队列）：使用
-`requireConsent: 'cookie'` 时数据会立即发送，但在用户给出 Cookie 同意之前不会写入任何存储，
-`forgetCookieConsentGiven()` 会删除已保存的数据。追踪同意包含 Cookie 同意；`set*` 仅在本次会话内有效，`remember*`
-会保存到设备上（可设置以小时为单位的有效期）；`optOut()` 始终优先。详见
-[同意概览](./docs/api.md#consent-overview)。
+`forgetConsentGiven`、`hasRememberedConsent`、`getRememberedConsent`、`isConsentRequired`）与 Cookie 同意
+（`requireCookieConsent`、`setCookieConsentGiven`、`rememberCookieConsentGiven(hoursToExpire?)`、
+`forgetCookieConsentGiven`、`getRememberedCookieConsent`、`areCookiesEnabled`）。在小程序中，"Cookie" 指 SDK
+的本地存储（访客 ID 与离线队列）：使用 `requireConsent: 'cookie'` 时数据会立即发送，但在用户给出 Cookie 同意
+之前不会写入任何存储；只要缺少 Cookie 同意（调用了 `forgetCookieConsentGiven()`，或记住的同意已过期），已保存
+的数据就会被删除。追踪同意包含 Cookie 同意；`set*` 仅在本次会话内有效，`remember*` 会保存到设备上（可设置以
+小时为单位的有效期）。在等待追踪同意期间不会发送任何数据（包括之前已排队的数据），已保存的访客 ID 会继续沿用
+但不会被更新。`forgetConsentGiven()` 的撤回状态会保存在设备上：之后每次启动都需要重新获得同意，直到用户再次
+同意为止。`optOut()` 始终优先，并会删除已保存的访客 ID 与队列。详见 [同意概览](./docs/api.md#consent-overview)。
 
 完整 API 请参阅 [`docs/api.md`](./docs/api.md)；该流程具体收集哪些数据，可直接粘贴到隐私政策中的文案见
 [`docs/privacy-disclosure.md`](./docs/privacy-disclosure.md)。

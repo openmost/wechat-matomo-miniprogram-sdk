@@ -8,6 +8,11 @@
 
 A zero-dependency [Matomo](https://matomo.org) analytics SDK for WeChat mini programs (微信小程序).
 
+> [!TIP]
+> Need help with Matomo — audit, setup, tracking plan, data quality, performance, dashboards, or
+> installing Matomo on your own servers in China? Openmost, Matomo experts, can help:
+> https://openmost.com · ronan@openmost.com
+
 ## Features
 
 - Automatic pageviews — wraps `App`/`Page`/`Component` so navigation is tracked without touching every page
@@ -21,7 +26,7 @@ A zero-dependency [Matomo](https://matomo.org) analytics SDK for WeChat mini pro
 - Offline queue with bulk sending, exponential-backoff retry, and a size cap — unsent hits survive
   restarts and long offline periods for up to 23 hours
 - Zero runtime dependencies
-- **< 40 KB minified** (measured 32,758 B)
+- **< 40 KB minified** (measured 33,377 B)
 - Full TypeScript types
 - Works in the WebView and Skyline rendering engines
 
@@ -213,13 +218,17 @@ program before agreeing.
 
 The consent API matches Matomo JS: tracking consent (`requireConsent`, `setConsentGiven`,
 `rememberConsentGiven(hoursToExpire?)`, `forgetConsentGiven`, `hasRememberedConsent`,
-`getRememberedConsent`) and cookie consent (`requireCookieConsent`, `setCookieConsentGiven`,
-`rememberCookieConsentGiven(hoursToExpire?)`, `forgetCookieConsentGiven`, `areCookiesEnabled`). In a mini
-program, "cookies" means the SDK's storage (visitor ID and offline queue): with `requireConsent: 'cookie'`
-hits are sent at once, but nothing is written to storage until cookie consent is given, and
-`forgetCookieConsentGiven()` deletes what was stored. Tracking consent implies cookie consent; `set*`
-lasts for the session, `remember*` is stored (optionally with an expiry in hours); `optOut()` always wins.
-See the [consent overview](./docs/api.md#consent-overview).
+`getRememberedConsent`, `isConsentRequired`) and cookie consent (`requireCookieConsent`,
+`setCookieConsentGiven`, `rememberCookieConsentGiven(hoursToExpire?)`, `forgetCookieConsentGiven`,
+`getRememberedCookieConsent`, `areCookiesEnabled`). In a mini program, "cookies" means the SDK's storage
+(visitor ID and offline queue): with `requireConsent: 'cookie'` hits are sent at once, but nothing is
+written to storage until cookie consent is given, and stored data is removed whenever cookie consent is
+missing (`forgetCookieConsentGiven()`, or a remembered consent that expired). Tracking consent implies
+cookie consent; `set*` lasts for the session, `remember*` is stored (optionally with an expiry in hours).
+While tracking consent is pending nothing is sent, not even hits queued earlier, and a stored visitor ID
+is reused but not updated. `forgetConsentGiven()` is remembered on the device: later launches require
+consent until it is given again. `optOut()` always wins and removes the stored visitor ID and queue. See
+the [consent overview](./docs/api.md#consent-overview).
 
 See [`docs/api.md`](./docs/api.md) for the full API, and
 [`docs/privacy-disclosure.md`](./docs/privacy-disclosure.md) for ready-to-paste privacy-policy text

@@ -80,10 +80,12 @@ describe('docs stay in sync with code', () => {
       'forgetConsentGiven',
       'hasRememberedConsent',
       'getRememberedConsent',
+      'isConsentRequired',
       'requireCookieConsent',
       'setCookieConsentGiven',
       'rememberCookieConsentGiven(hoursToExpire?)',
       'forgetCookieConsentGiven',
+      'getRememberedCookieConsent',
       'areCookiesEnabled',
       'optOut',
       'Share to chat',
@@ -124,6 +126,16 @@ describe('docs stay in sync with code', () => {
       for (const row of rows) expect(doc).toContain(row);
       for (const name of ['`login`', '`sign_up`', 'setUserId']) expect(doc).toContain(name);
       expect(doc).toContain(ga4);
+    }
+  });
+
+  it('points to Openmost in a callout before Install in all three READMEs', () => {
+    for (const doc of ['README.md', 'README.zh-TW.md', 'README.en.md'].map(read)) {
+      const tip = doc.indexOf('> [!TIP]');
+      expect(tip).toBeGreaterThan(0);
+      expect(tip).toBeLessThan(doc.indexOf('npm i @openmost/wechat-matomo-miniprogram-sdk'));
+      const callout = doc.slice(tip, doc.indexOf('\n\n', tip));
+      expect(callout).toContain('https://openmost.com · ronan@openmost.com');
     }
   });
 });
