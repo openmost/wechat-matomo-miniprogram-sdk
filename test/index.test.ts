@@ -252,4 +252,145 @@ describe('Matomo facade', () => {
     expect(wx.requests).toHaveLength(1);
     expect(m.getVisitorId()).toMatch(/^[0-9a-f]{16}$/);
   });
+
+  it('does not re-attribute a hot start within the same visit, but does after a new visit', () => {
+    init(); // default wx-mock launch: scene 1001 -> no attribution
+    showPage('pages/index/index');
+    expect(last().url).not.toContain('mtm_');
+
+    target.App?.({});
+    wx.launch = { ...wx.launch, scene: 1038 }; // hot start: returning from another mini program
+    (app?.onShow as Fn).call({});
+    showPage('pages/item/item'); // same visit: must not pick up the hot-start scene mid-visit
+    expect(last().url).not.toContain('mtm_');
+
+    now += 31 * 60 * 1000; // past the 30 min visit timeout
+    (app?.onShow as Fn).call({});
+    showPage('pages/other/other'); // new visit: attribution comes from the latest enter options
+    expect(last().url).toBe(
+      'app://wx1234567890abcdef/pages/other/other?mtm_campaign=wechat_miniprogram&mtm_source=wechat&mtm_medium=miniprogram&mtm_kwd=1038',
+    );
+  });
+
+  it('skips a heartbeat ping that would open a new visit, and never attributes a ping', () => {
+    init({ heartbeat: 15 });
+    target.App?.({});
+    const { p, ctx } = showPage('pages/index/index');
+
+    now += 31 * 60 * 1000; // a ping here would silently open a new visit; must be skipped instead
+    (p?.onHide as Fn).call(ctx);
+    expect(hits()).toHaveLength(1); // still just the initial pageview
+
+    // Opening the new visit for real (a pageview), then a hot start mid-visit, must not leak
+    // campaign attribution onto the next heartbeat ping.
+    const { p: p2, ctx: ctx2 } = showPage('pages/other/other');
+    wx.launch = { ...wx.launch, scene: 1038 };
+    (app?.onShow as Fn).call({});
+    now += 16_000; // heartbeat due again, still well inside the (fresh) visit window
+    (p2?.onHide as Fn).call(ctx2);
+    expect(last()).toMatchObject({ ping: '1' });
+    expect(last().url).not.toContain('mtm_');
+  });
+
+  it('keeps a pending ecommerce view when the pageview it belongs to is blocked', () => {
+    init({ requireConsent: 'tracking', autoTrackPages: false });
+    m.setEcommerceView('SKU9', 'Coffee', 'Drinks', 8);
+    m.trackPageView('Blocked');
+    expect(hits()).toEqual([]);
+    m.setConsentGiven();
+    m.trackPageView('Shown');
+    expect(last()).toMatchObject({
+      action_name: 'Shown',
+      _pks: 'SKU9',
+      _pkn: 'Coffee',
+      _pkc: 'Drinks',
+      _pkp: '8',
+    });
+  });
+
+  it('drops NaN numeric params instead of sending the literal "NaN"', () => {
+    init();
+    m.trackEvent('a', 'b', undefined, NaN);
+    m.trackSiteSearch('tea', undefined, NaN);
+    m.trackGoal(2, NaN);
+    const [event, search, goal] = hits();
+    expect(event).not.toHaveProperty('e_v');
+    expect(search).not.toHaveProperty('search_count');
+    expect(goal).not.toHaveProperty('revenue');
+  });
+
+  it('does not leave a running queue when installLifecycle throws', () => {
+    const throwingTarget: LifecycleTarget = {
+      get App(): never {
+        throw new Error('boom');
+      },
+    };
+    let seed = 1;
+    const random = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+    const platform = createPlatform(wx, { now: () => now, random });
+    const broken = createTracker(() => ({ platform, target: throwingTarget }));
+    const before = vi.getTimerCount();
+    expect(broken.init({ trackerUrl: 'https://stats.example.cn', siteId: 3, batchSize: 50 })).toBe(
+      false,
+    );
+    expect(vi.getTimerCount()).toBe(before);
+  });
+
+  it('never tracks anything while disabled', () => {
+    init({ disabled: true });
+    m.trackEvent('a', 'b');
+    m.trackPageView();
+    expect(hits()).toEqual([]);
+  });
+
+  it('does not track a Share event when trackShares is false, but still adds campaign params', () => {
+    init({ trackShares: false });
+    const { p, ctx } = showPage(
+      'pages/item/item',
+      {},
+      { onShareAppMessage: () => ({ title: 'T' }) },
+    );
+    const result = (p?.onShareAppMessage as Fn).call(ctx);
+    expect(result).toEqual({
+      title: 'T',
+      path: '/pages/item/item?mtm_campaign=wechat_share&mtm_source=wechat&mtm_medium=share',
+    });
+    expect(hits().some((h) => h.e_c === 'Share')).toBe(false);
+  });
+
+  it('adds no campaign params when shareCampaign is false, but still tracks the share event', () => {
+    init({ shareCampaign: false });
+    const { p, ctx } = showPage(
+      'pages/item/item',
+      {},
+      { onShareAppMessage: () => ({ title: 'T' }) },
+    );
+    const result = (p?.onShareAppMessage as Fn).call(ctx);
+    expect(result).toEqual({ title: 'T' });
+    expect(last()).toMatchObject({
+      e_c: 'Share',
+      e_a: 'share_app_message',
+      e_n: 'pages/item/item',
+    });
+  });
+
+  it('cookie consent sends hits immediately but persists the visitor only once given', () => {
+    init({ requireConsent: 'cookie' });
+    m.trackEvent('a', 'b');
+    expect(hits().map((h) => h.e_a)).toEqual(['b']);
+    expect(wx.storage.has(`${STORAGE_PREFIX}visitor`)).toBe(false);
+    m.setConsentGiven();
+    expect(wx.storage.has(`${STORAGE_PREFIX}visitor`)).toBe(true);
+  });
+
+  it('requireConsent() gates a previously unrestricted tracker at runtime', () => {
+    init();
+    m.trackEvent('a', 'before');
+    m.requireConsent();
+    m.trackEvent('a', 'blocked');
+    expect(hits().map((h) => h.e_a)).toEqual(['before']);
+    m.setConsentGiven();
+    m.trackEvent('a', 'after');
+    expect(hits().map((h) => h.e_a)).toEqual(['before', 'after']);
+  });
 });

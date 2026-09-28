@@ -9,7 +9,7 @@ import { HitQueue } from './queue';
 import { buildHit, newPageViewId, pageUrl, parsePath, withQuery, type PageRef } from './request';
 import type { Params } from './types';
 import { guard } from './util';
-import { Visitor } from './visitor';
+import { Visitor, VISIT_TIMEOUT_MS } from './visitor';
 
 export type { ConfigError, MatomoConfig, MatomoOptions } from './config';
 
@@ -45,6 +45,7 @@ export class MatomoTracker {
   constructor(private readonly deps: () => TrackerDeps) {}
 
   init(options: MatomoOptions): boolean {
+    let state: State | undefined;
     try {
       if (this.state) {
         this.log('init called twice; ignored');
@@ -61,7 +62,7 @@ export class MatomoTracker {
       const config = parsed.config;
       const consent = new Consent(platform, config.requireConsent);
       const launch = platform.launchOptions();
-      const state: State = {
+      state = {
         config,
         platform,
         consent,
@@ -80,14 +81,19 @@ export class MatomoTracker {
         attribution: resolveAttribution(launch, config.trackScenes).params,
         lastHitTs: 0,
       };
-      this.state = state;
-      if (!config.disabled) state.queue.start();
+      // Wire the lifecycle hooks before starting the queue's timer/online-listener: if
+      // `installLifecycle` throws, the queue must never have been started, or a failed init
+      // would leave a live queue running behind the caller's back.
       if (target) installLifecycle(target, this.hooks(state), (e) => this.log('hook error', e));
+      if (!config.disabled) state.queue.start();
+      this.state = state;
       const pending = this.buffer;
       this.buffer = [];
-      pending.forEach((call) => guard(() => call(state), this.onError));
+      const initializedState = state;
+      pending.forEach((call) => guard(() => call(initializedState), this.onError));
       return true;
     } catch (error) {
+      state?.queue.stop();
       this.state = undefined;
       this.log('init failed', error);
       return false;
@@ -106,7 +112,7 @@ export class MatomoTracker {
         e_c: category,
         e_a: action,
         e_n: name,
-        e_v: typeof value === 'number' ? value : undefined,
+        e_v: Number.isFinite(value) ? value : undefined,
       });
     });
   }
@@ -117,7 +123,7 @@ export class MatomoTracker {
       this.track(s, {
         search: keyword,
         search_cat: category,
-        search_count: typeof resultsCount === 'number' ? resultsCount : undefined,
+        search_count: Number.isFinite(resultsCount) ? resultsCount : undefined,
       });
     });
   }
@@ -125,7 +131,7 @@ export class MatomoTracker {
   trackGoal(idGoal: number, revenue?: number): void {
     this.run((s) => {
       if (!Number.isInteger(idGoal) || idGoal <= 0) return this.log('trackGoal needs a goal id');
-      this.track(s, { idgoal: idGoal, revenue: typeof revenue === 'number' ? revenue : undefined });
+      this.track(s, { idgoal: idGoal, revenue: Number.isFinite(revenue) ? revenue : undefined });
     });
   }
 
@@ -274,9 +280,12 @@ export class MatomoTracker {
 
   private hooks(s: State) {
     return {
-      appShow: () => {
-        s.attribution = resolveAttribution(s.platform.enterOptions(), s.config.trackScenes).params;
-      },
+      // Attribution is only (re-)resolved by `track()` when `visitor.touch()` reports a new
+      // visit, reading `platform.enterOptions()` at that moment — WeChat keeps that call
+      // current across hot starts (spec §4.4: campaign params belong on "the first hit's page
+      // URL of a visit"). Resolving it eagerly here would stamp mtm_* onto the next hit even
+      // mid-visit (e.g. returning from another mini program), splitting a single Matomo visit.
+      appShow: () => undefined,
       appHide: () => {
         this.heartbeat(s);
         void s.queue.flush();
@@ -324,24 +333,36 @@ export class MatomoTracker {
       pv_id: newPageViewId(() => s.platform.random()),
       ...s.ecommerceView,
     };
-    s.ecommerceView = undefined;
-    this.track(s, params);
+    // Only drop the pending ecommerce view once the hit that carries it is actually enqueued —
+    // if `track()` blocks the hit (consent, opt-out, disabled), the product view must survive
+    // for the next pageview attempt instead of being silently lost.
+    this.track(s, params, { onSent: () => (s.ecommerceView = undefined) });
   }
 
   private heartbeat(s: State): void {
     const hb = s.config.heartbeat;
-    if (hb > 0 && s.lastHitTs > 0 && s.platform.now() - s.lastHitTs >= hb * 1000)
-      this.track(s, { ping: 1 });
+    if (hb <= 0 || s.lastHitTs <= 0) return;
+    const elapsed = s.platform.now() - s.lastHitTs;
+    // A gap past the visit timeout would make `visitor.touch()` open a brand new visit for a
+    // synthetic ping; skip it instead so the next real hit opens (and attributes) that visit.
+    if (elapsed >= hb * 1000 && elapsed <= VISIT_TIMEOUT_MS)
+      this.track(s, { ping: 1 }, { attribute: false });
   }
 
-  private track(s: State, specific: Params): void {
+  private track(
+    s: State,
+    specific: Params,
+    opts: { attribute?: boolean; onSent?: () => void } = {},
+  ): void {
     if (s.config.disabled || !s.consent.canSend()) return;
+    const attribute = opts.attribute ?? true;
     const { newVisit } = s.visitor.touch();
-    if (newVisit && s.lastHitTs > 0)
+    if (attribute && newVisit && s.lastHitTs > 0)
       s.attribution = resolveAttribution(s.platform.enterOptions(), s.config.trackScenes).params;
     let url = pageUrl(s.device.appId, s.current);
-    if (s.attribution && Object.keys(s.attribution).length > 0) url = withQuery(url, s.attribution);
-    s.attribution = undefined;
+    if (attribute && s.attribution && Object.keys(s.attribution).length > 0)
+      url = withQuery(url, s.attribution);
+    if (attribute) s.attribution = undefined;
     const now = s.platform.now();
     s.queue.enqueue(
       buildHit(
@@ -361,6 +382,7 @@ export class MatomoTracker {
       ),
     );
     s.lastHitTs = now;
+    opts.onSent?.();
   }
 
   private run(call: (s: State) => void): void {
