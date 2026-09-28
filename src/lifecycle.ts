@@ -31,8 +31,11 @@ export interface LifecycleHooks {
 type Options = Record<string, unknown>;
 interface PageContext {
   route?: unknown;
+  is?: unknown;
   options?: unknown;
   __mtmQuery?: Record<string, string>;
+  /** Set while the page is displayed, so show + ready count one pageview per display. */
+  __mtmVisible?: boolean;
 }
 type Handler = (this: PageContext, ...args: unknown[]) => unknown;
 /** `guard` bound to the installer's `onError`. */
@@ -45,6 +48,13 @@ function toQuery(value: unknown): Record<string, string> {
 }
 
 const routeOf = (ctx: PageContext): string => (typeof ctx.route === 'string' ? ctx.route : '');
+
+/**
+ * Route of a page instance, or '' for a child component: a Component page's `is` equals its route,
+ * a child component's `is` is its own component path.
+ */
+const pageRoute = (ctx: PageContext): string =>
+  ctx.is === undefined || ctx.is === ctx.route ? routeOf(ctx) : '';
 
 /** Host handler first (result and exceptions untouched), then the guarded SDK hook. */
 function after(original: unknown, hook: (ctx: PageContext) => void): Handler {
@@ -67,14 +77,17 @@ const PAGE_HANDLERS = [
 
 const showHook = (hooks: LifecycleHooks, safe: Safe) => (ctx: PageContext) =>
   safe(() => {
-    const route = routeOf(ctx);
+    const route = pageRoute(ctx);
+    if (!route || ctx.__mtmVisible) return;
+    ctx.__mtmVisible = true;
     // `this.options` (the page query) covers pages whose onLoad the SDK did not wrap.
-    if (route) hooks.pageShow(route, ctx.__mtmQuery ?? toQuery(ctx.options));
+    hooks.pageShow(route, ctx.__mtmQuery ?? toQuery(ctx.options));
   });
 
 const hideHook = (hooks: LifecycleHooks, safe: Safe) => (ctx: PageContext) =>
   safe(() => {
-    const route = routeOf(ctx);
+    ctx.__mtmVisible = false;
+    const route = pageRoute(ctx);
     if (route) hooks.pageHide(route);
   });
 
@@ -126,9 +139,10 @@ function withPageHandlers(
 
 /**
  * Component pages: host-defined `methods.on*` handlers are wrapped; for the ones the host did not
- * define, the SDK hooks `pageLifetimes.show/hide` and `lifetimes.detached` instead, which WeChat
- * merges with behaviors rather than overriding them. Components without a route (not pages) are
- * ignored by the hooks, and their `methods` are never touched.
+ * define, the SDK hooks `pageLifetimes.show/hide` and `lifetimes.ready/detached` instead, which
+ * WeChat merges with behaviors rather than overriding them. `ready` covers a first display that
+ * does not fire `pageLifetimes.show`; the show hook counts one pageview per display. Child
+ * components (not pages) are ignored by the hooks, and their `methods` are never touched.
  */
 function withComponentHandlers(o: Options, hooks: LifecycleHooks, safe: Safe): Options {
   const methods = isRecord(o.methods) ? o.methods : {};
@@ -136,16 +150,18 @@ function withComponentHandlers(o: Options, hooks: LifecycleHooks, safe: Safe): O
   const out: Options = { ...o };
   if (PAGE_HANDLERS.some(defined)) out.methods = withPageHandlers(methods, hooks, safe, true);
   const pageLifetimes = isRecord(o.pageLifetimes) ? { ...o.pageLifetimes } : {};
+  const lifetimes = isRecord(o.lifetimes) ? { ...o.lifetimes } : {};
+  const show = showHook(hooks, safe);
   const hide = hideHook(hooks, safe);
-  if (!defined('onShow')) pageLifetimes.show = after(pageLifetimes.show, showHook(hooks, safe));
-  if (!defined('onHide')) pageLifetimes.hide = after(pageLifetimes.hide, hide);
-  out.pageLifetimes = pageLifetimes;
-  if (!defined('onUnload')) {
-    const lifetimes = isRecord(o.lifetimes) ? { ...o.lifetimes } : {};
-    // `lifetimes.detached` takes precedence over a top-level `detached`, so chain the latter.
-    lifetimes.detached = after(lifetimes.detached ?? o.detached, hide);
-    out.lifetimes = lifetimes;
+  // `lifetimes.*` takes precedence over the top-level `ready`/`detached`, so chain the latter.
+  if (!defined('onShow')) {
+    pageLifetimes.show = after(pageLifetimes.show, show);
+    lifetimes.ready = after(lifetimes.ready ?? o.ready, show);
   }
+  if (!defined('onHide')) pageLifetimes.hide = after(pageLifetimes.hide, hide);
+  if (!defined('onUnload')) lifetimes.detached = after(lifetimes.detached ?? o.detached, hide);
+  out.pageLifetimes = pageLifetimes;
+  if (Object.keys(lifetimes).length > 0) out.lifetimes = lifetimes;
   return out;
 }
 

@@ -167,6 +167,72 @@ describe('installLifecycle', () => {
     expect(hooks.pageHide).toHaveBeenCalledTimes(2);
   });
 
+  describe('Component page without its own methods.onShow', () => {
+    const register = (extra: Opts = {}) => {
+      const s = setup();
+      s.target.Component?.({ behaviors: ['b'], ...extra });
+      const options = s.registered.components[0] as Opts;
+      const page = { route: 'pages/c/c', is: 'pages/c/c', options: { id: '1' } };
+      const show = () => call(options.pageLifetimes as Opts, 'show', page);
+      const ready = () => call(options.lifetimes as Opts, 'ready', page);
+      const hide = () => call(options.pageLifetimes as Opts, 'hide', page);
+      return { ...s, options, show, ready, hide };
+    };
+
+    it('tracks one pageview for show then ready', () => {
+      const { hooks, show, ready } = register();
+      show();
+      ready();
+      expect(hooks.pageShow).toHaveBeenCalledTimes(1);
+    });
+
+    it('tracks one pageview for ready then show', () => {
+      const { hooks, show, ready } = register();
+      ready();
+      show();
+      expect(hooks.pageShow).toHaveBeenCalledTimes(1);
+      expect(hooks.pageShow).toHaveBeenCalledWith('pages/c/c', { id: '1' });
+    });
+
+    it('tracks the first display from ready alone', () => {
+      const { hooks, ready } = register();
+      ready();
+      expect(hooks.pageShow).toHaveBeenCalledTimes(1);
+    });
+
+    it('tracks again after hide then show', () => {
+      const { hooks, show, ready, hide } = register();
+      ready();
+      show();
+      hide();
+      show();
+      expect(hooks.pageShow).toHaveBeenCalledTimes(2);
+    });
+
+    it('chains the host ready handlers', () => {
+      const topLevel = vi.fn();
+      const inLifetimes = vi.fn();
+      register({ ready: topLevel }).ready();
+      register({ ready: topLevel, lifetimes: { ready: inLifetimes } }).ready();
+      expect(topLevel).toHaveBeenCalledTimes(1);
+      expect(inLifetimes).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('ignores a child component whose route is not its own path', () => {
+    const { target, registered, hooks } = setup();
+    target.Component?.({});
+    const options = registered.components[0] as Opts;
+    // A child component inside pages/c/c: `is` is the component's own path.
+    const child = { route: 'pages/c/c', is: 'components/card/card' };
+    call(options.lifetimes as Opts, 'ready', child);
+    call(options.pageLifetimes as Opts, 'show', child);
+    call(options.pageLifetimes as Opts, 'hide', child);
+    call(options.lifetimes as Opts, 'detached', child);
+    expect(hooks.pageShow).not.toHaveBeenCalled();
+    expect(hooks.pageHide).not.toHaveBeenCalled();
+  });
+
   it('does not double track Component pages that define methods.onShow', () => {
     const { target, registered, hooks } = setup();
     target.Component?.({ methods: { onShow() {}, onHide() {}, onUnload() {} } });
