@@ -71,4 +71,35 @@ describe('docs stay in sync with code', () => {
     expect(zhTW).toContain(ga4Example);
     expect(en).toContain(ga4Example);
   });
+
+  it('describes the consent API and the automatic GA4-style events in all three READMEs', () => {
+    const terms = [
+      'requireConsent',
+      'setConsentGiven',
+      'rememberConsentGiven(hoursToExpire?)',
+      'forgetConsentGiven',
+      'hasRememberedConsent',
+      'getRememberedConsent',
+      'requireCookieConsent',
+      'setCookieConsentGiven',
+      'rememberCookieConsentGiven(hoursToExpire?)',
+      'forgetCookieConsentGiven',
+      'areCookiesEnabled',
+      'optOut',
+      'Share to chat',
+      'Share to Moments',
+      'Payment started',
+      'begin_checkout',
+      'Payment completed',
+      'purchase',
+      'Payment cancelled',
+      'payment_cancelled',
+      'Payment failed',
+      'payment_failed',
+      'requestPayment:fail cancel',
+      'Matomo.trackEcommerceOrder(orderId, 119.8);',
+    ];
+    for (const doc of ['README.md', 'README.zh-TW.md', 'README.en.md'].map(read))
+      for (const term of terms) expect(doc).toContain(term);
+  });
 });

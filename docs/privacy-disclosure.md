@@ -32,6 +32,8 @@ content, navigation and features.
   number and time of previous visits
 - The WeChat "scene" value describing how the mini program was opened (e.g. scan, share, search), used
   only to attribute traffic sources
+- If payment tracking is enabled (`trackPayments`), the outcome of each WeChat Pay payment (started,
+  completed, cancelled, failed) — never the payment parameters or the amount
 
 **Data NOT collected:** this SDK never accesses or transmits the user's WeChat `openid`, `unionid`,
 phone number, precise or approximate location, avatar, nickname, or any other WeChat-authorized personal
@@ -39,11 +41,15 @@ information. It never calls `wx.login`, `wx.getUserProfile`, or any location/con
 program name] separately calls `Matomo.setUserId()` with your own user identifier, disclose that
 separately as part of your own account/login data handling — see the note below.
 
-**Storage:** a small amount of state (the visitor identifier, pending unsent events, consent status) is
-stored locally on the user's device using the mini program storage APIs (`wx.setStorageSync`), under
-keys prefixed `_mtm_sdk_` (for example `_mtm_sdk_visitor`, `_mtm_sdk_queue`). This data is not
-synchronized to WeChat's servers by the platform; it is only ever sent by this SDK, over HTTPS, to the
-analytics server address you configure below.
+**Storage:** a small amount of state (the visitor identifier, pending unsent events, remembered consent,
+opt-out status) is stored locally on the user's device using the mini program storage APIs
+(`wx.setStorageSync`), under keys prefixed `_mtm_sdk_` (for example `_mtm_sdk_visitor`,
+`_mtm_sdk_queue`, `_mtm_sdk_consent`). If [your mini program name] requires storage consent
+(`requireConsent: 'cookie'` or `Matomo.requireCookieConsent()`), the visitor identifier and pending events
+are kept in memory only, and nothing is stored, until the user agrees; withdrawing that consent
+(`Matomo.forgetCookieConsentGiven()`) deletes them from the device. This data is not synchronized to
+WeChat's servers by the platform; it is only ever sent by this SDK, over HTTPS, to the analytics server
+address you configure below.
 
 **Recipient / cross-border transfer:** analytics data is sent directly from the user's device to
 **[your Matomo server URL]**, which is operated by **[your company/organization name]**. If that server
@@ -54,9 +60,11 @@ and safeguards in your privacy policy.
 
 **User control:** users can decline analytics tracking. If [your mini program name] provides a privacy
 consent popup, declining calls `Matomo.optOut()` (or leaves `Matomo.requireConsent()` unresolved),
-which stops all further data collection and clears any data queued but not yet sent. Withdrawing consent
-does not delete data already received by your Matomo server; contact **[your support email]** for a
-deletion request.
+which stops all further data collection and clears any data queued but not yet sent. Consent given with
+`Matomo.rememberConsentGiven()` is stored on the device (optionally with an expiry) and can be withdrawn at
+any time with `Matomo.forgetConsentGiven()`, which also deletes the stored visitor identifier. Withdrawing
+consent does not delete data already received by your Matomo server; contact **[your support email]** for
+a deletion request.
 
 ---
 
@@ -80,16 +88,19 @@ deletion request.
 - 你配置本 SDK 追踪的自定义事件（如按钮点击、搜索、下单等）
 - 随机生成的访客标识符（非基于任何微信账号标识生成），以及此前访问的次数与时间
 - 描述小程序打开方式的微信 "场景值"（如扫码、分享、搜索），仅用于流量来源归因
+- 若开启支付追踪（`trackPayments`），每次微信支付的结果（发起、完成、取消、失败）—— 不含支付参数与金额
 
 **不会收集的信息：** 本 SDK 不会获取或上传用户的微信 `openid`、`unionid`、手机号、精确或大致地理位置、头像、
 昵称，或任何其他微信授权个人信息。本 SDK 从不调用 `wx.login`、`wx.getUserProfile` 或任何位置/通讯录相关接口。
 如果【你的小程序名称】另行调用 `Matomo.setUserId()` 传入你自有的用户标识符，请在你自己的账号/登录数据处理说明中
 单独披露 —— 详见下方说明。
 
-**存储方式：** 少量状态信息（访客标识符、待发送事件、同意状态）通过小程序存储接口
+**存储方式：** 少量状态信息（访客标识符、待发送事件、已记住的同意、退出追踪状态）通过小程序存储接口
 （`wx.setStorageSync`）保存在用户设备本地，键名统一以 `_mtm_sdk_` 为前缀（例如 `_mtm_sdk_visitor`、
-`_mtm_sdk_queue`）。该数据不会被微信平台同步至其服务器；仅由本 SDK 通过 HTTPS 发送至你在下方配置的分析服务器
-地址。
+`_mtm_sdk_queue`、`_mtm_sdk_consent`）。若【你的小程序名称】要求存储同意（`requireConsent: 'cookie'` 或
+`Matomo.requireCookieConsent()`），在用户同意之前，访客标识符与待发送事件仅保存在内存中，不会写入任何存储；
+撤回该同意（`Matomo.forgetCookieConsentGiven()`）会将其从设备中删除。该数据不会被微信平台同步至其服务器；
+仅由本 SDK 通过 HTTPS 发送至你在下方配置的分析服务器地址。
 
 **接收方 / 跨境传输：** 统计数据由用户设备直接发送至 **【你的 Matomo 服务器地址】**，该服务器由
 **【你的公司/组织名称】** 运营。若该服务器位于中国大陆境外，则构成个人信息的跨境传输，你需依据《个人信息保护法》
@@ -98,5 +109,6 @@ deletion request.
 
 **用户控制：** 用户可以拒绝统计追踪。若【你的小程序名称】提供隐私同意弹窗，用户拒绝时应调用 `Matomo.optOut()`
 （或不调用 `Matomo.setConsentGiven()` 使 `Matomo.requireConsent()` 保持未同意状态），这将停止所有后续数据收集，
-并清除尚未发送的排队数据。撤回同意不会删除已发送至你的 Matomo 服务器的历史数据；如需删除，请联系
-**【你的客服邮箱】**。
+并清除尚未发送的排队数据。通过 `Matomo.rememberConsentGiven()` 给出的同意会保存在设备上（可设置有效期），
+用户可随时通过 `Matomo.forgetConsentGiven()` 撤回，同时会删除已保存的访客标识符。撤回同意不会删除已发送至你的
+Matomo 服务器的历史数据；如需删除，请联系 **【你的客服邮箱】**。

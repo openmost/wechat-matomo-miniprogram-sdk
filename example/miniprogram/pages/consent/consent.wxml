@@ -1,7 +1,21 @@
 <view class="card">
-  <text>Opted out: {{optedOut}}</text>
-  <button bindtap="onGive">Give consent</button>
+  <view><text>Opted out: {{optedOut}}</text></view>
+  <view><text>Storage (cookies) enabled: {{cookiesEnabled}}</text></view>
+  <view><text>Remembered tracking consent: {{rememberedConsent}}</text></view>
+</view>
+<view class="card">
+  <view><text>Tracking consent (nothing is sent without it)</text></view>
+  <button bindtap="onGive">Give consent (this session)</button>
+  <button bindtap="onRemember">Remember consent (1 year)</button>
   <button bindtap="onForget">Withdraw consent</button>
+</view>
+<view class="card">
+  <view><text>Cookie consent (hits are sent, nothing is stored without it)</text></view>
+  <button bindtap="onGiveCookies">Give cookie consent (this session)</button>
+  <button bindtap="onRememberCookies">Remember cookie consent (1 year)</button>
+  <button bindtap="onForgetCookies">Withdraw cookie consent</button>
+</view>
+<view class="card">
   <button bindtap="onOptOut">Opt out</button>
   <button bindtap="onOptIn">Opt in</button>
 </view>

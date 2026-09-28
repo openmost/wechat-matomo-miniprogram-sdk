@@ -51,4 +51,13 @@ Page({
     Matomo.requireConsent();
     toast('requireConsent');
   },
+  onRequireCookieConsent() {
+    Matomo.requireCookieConsent();
+    toast('requireCookieConsent');
+  },
+  onConsentState() {
+    toast(
+      `remembered: ${Matomo.hasRememberedConsent()} (${Matomo.getRememberedConsent()}), cookies: ${Matomo.areCookiesEnabled()}`,
+    );
+  },
 });

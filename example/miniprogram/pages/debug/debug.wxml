@@ -11,4 +11,6 @@
   <button bindtap="onSetDimension">setCustomDimension(1)</button>
   <button bindtap="onDeleteDimension">deleteCustomDimension(1)</button>
   <button bindtap="onRequireConsent">requireConsent</button>
+  <button bindtap="onRequireCookieConsent">requireCookieConsent</button>
+  <button bindtap="onConsentState">hasRememberedConsent / getRememberedConsent / areCookiesEnabled</button>
 </view>

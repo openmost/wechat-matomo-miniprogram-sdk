@@ -17,10 +17,10 @@
 - 電商：商品瀏覽、購物車更新、訂單，以及可選的微信支付事件（`trackPayments`）
 - 自訂維度
 - 使用者 ID
-- 同意模式（`tracking` / `cookie`）與退出追蹤，語義與 Matomo JS 保持一致
+- 追蹤同意與 Cookie 同意（本次工作階段、帶有效期限的記住、撤回）及退出追蹤 —— 與 Matomo JS 同意 API 一致
 - 離線佇列，支援批次傳送、指數退避重試與容量上限 —— 尚未送出的資料在重新啟動與長時間離線後依然保留，最長 23 小時
 - 零執行期依賴
-- **壓縮後 < 32 KB**（實測 30,253 位元組）
+- **壓縮後 < 32 KB**（實測 32,391 位元組）
 - 完整 TypeScript 型別定義
 - 相容 WebView 與 Skyline 渲染引擎
 
@@ -176,16 +176,26 @@ Matomo.init({
 
 // 在你的隱私彈窗中：
 function onAgree() {
-  Matomo.setConsentGiven();
+  Matomo.rememberConsentGiven(); // 會儲存：之後啟動時直接視為已同意
+  // Matomo.setConsentGiven(); // 或者：僅在本次工作階段內有效
 }
 function onDecline() {
-  Matomo.optOut();
+  Matomo.optOut(); // 會儲存；永遠優先
 }
 ```
 
 與 Matomo JS 一致，使用者同意之前產生的頁面瀏覽與事件不會遺失：它們僅保存在記憶體中（不會寫入本地儲存，最多
-100 筆），並在呼叫 `setConsentGiven()` 後立即依原始時間傳送。呼叫 `optOut()` 或 `forgetConsentGiven()` 會
-捨棄這些資料；若使用者在同意之前關閉小程式，這些資料也會遺失。
+100 筆），並在使用者同意後立即依原始時間傳送。呼叫 `optOut()` 或 `forgetConsentGiven()` 會捨棄這些資料；若使用者
+在同意之前關閉小程式，這些資料也會遺失。
+
+同意 API 與 Matomo JS 一致：追蹤同意（`requireConsent`、`setConsentGiven`、`rememberConsentGiven(hoursToExpire?)`、
+`forgetConsentGiven`、`hasRememberedConsent`、`getRememberedConsent`）與 Cookie 同意（`requireCookieConsent`、
+`setCookieConsentGiven`、`rememberCookieConsentGiven(hoursToExpire?)`、`forgetCookieConsentGiven`、
+`areCookiesEnabled`）。在小程式中，"Cookie" 指 SDK 的本地儲存（訪客 ID 與離線佇列）：使用
+`requireConsent: 'cookie'` 時資料會立即傳送，但在使用者給出 Cookie 同意之前不會寫入任何儲存，
+`forgetCookieConsentGiven()` 會刪除已儲存的資料。追蹤同意包含 Cookie 同意；`set*` 僅在本次工作階段內有效，
+`remember*` 會儲存到裝置上（可設定以小時為單位的有效期限）；`optOut()` 永遠優先。詳見
+[同意概覽](./docs/api.md#consent-overview)。
 
 完整 API 請參閱 [`docs/api.md`](./docs/api.md)；此流程具體收集哪些資料，可直接貼到隱私權政策中的文案見
 [`docs/privacy-disclosure.md`](./docs/privacy-disclosure.md)。
