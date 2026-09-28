@@ -3,7 +3,7 @@
 All methods are available on the `Matomo` singleton exported by the package:
 
 ```js
-const { Matomo } = require('wechat-matomo-miniprogram-sdk');
+const { Matomo } = require('@openmost/wechat-matomo-miniprogram-sdk');
 ```
 
 Every method is synchronous (except `flush`, which returns a `Promise<void>`), never throws into the

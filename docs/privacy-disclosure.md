@@ -10,7 +10,7 @@ publishing.
 
 ## English
 
-**SDK name:** wechat-matomo-miniprogram-sdk
+**SDK name:** @openmost/wechat-matomo-miniprogram-sdk
 
 **Provider:** [Openmost](https://openmost.com) — open source (MIT license), source code available at
 <https://github.com/openmost/wechat-matomo-miniprogram-sdk>. Openmost does not operate the analytics
@@ -62,7 +62,7 @@ deletion request.
 
 ## 中文
 
-**SDK 名称：** wechat-matomo-miniprogram-sdk
+**SDK 名称：** @openmost/wechat-matomo-miniprogram-sdk
 
 **提供方：** [Openmost](https://openmost.com) — 开源项目（MIT 许可证），源代码见
 <https://github.com/openmost/wechat-matomo-miniprogram-sdk>。Openmost 不运营本 SDK 所发送数据的目标分析服务器，

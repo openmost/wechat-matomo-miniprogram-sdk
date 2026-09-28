@@ -1,8 +1,11 @@
 {
-  "name": "wechat-matomo-miniprogram-sdk",
+  "name": "@openmost/wechat-matomo-miniprogram-sdk",
   "version": "0.1.0",
   "description": "Matomo analytics SDK for WeChat mini programs: automatic pageviews, events, site search, ecommerce, consent",
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "author": "Openmost <support@openmost.com> (https://openmost.com)",
   "homepage": "https://github.com/openmost/wechat-matomo-miniprogram-sdk#readme",
   "repository": {

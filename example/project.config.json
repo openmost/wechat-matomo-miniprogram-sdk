@@ -1,5 +1,5 @@
 {
-  "description": "wechat-matomo-miniprogram-sdk example",
+  "description": "@openmost/wechat-matomo-miniprogram-sdk example",
   "miniprogramRoot": "miniprogram/",
   "compileType": "miniprogram",
   "appid": "touristappid",

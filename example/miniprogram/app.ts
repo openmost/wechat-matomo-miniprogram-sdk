@@ -1,5 +1,5 @@
 // Matomo must be initialised before App() so the SDK can wrap App, Page and Component.
-import { Matomo } from 'wechat-matomo-miniprogram-sdk';
+import { Matomo } from '@openmost/wechat-matomo-miniprogram-sdk';
 
 Matomo.init({
   trackerUrl: 'https://demo.openmost.com', // Openmost test instance; replace with your ICP-filed tracker domain

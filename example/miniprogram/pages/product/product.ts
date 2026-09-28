@@ -1,4 +1,4 @@
-import { Matomo } from 'wechat-matomo-miniprogram-sdk';
+import { Matomo } from '@openmost/wechat-matomo-miniprogram-sdk';
 
 const CATEGORIES = ['Tea', 'Green tea'];
 
