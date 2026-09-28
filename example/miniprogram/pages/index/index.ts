@@ -9,7 +9,9 @@ Page({
     Matomo.trackSiteSearch(e.detail.value, 'products', 3);
   },
   onEvent() {
-    Matomo.trackEvent('Example', 'button_click', 'index');
+    // GA4-style: 'Engagement'/'Button click' are human-readable, 'button_click' is the
+    // snake_case event name, as in GA4.
+    Matomo.trackEvent('Engagement', 'Button click', 'button_click');
   },
   onProduct() {
     wx.navigateTo({ url: '/pages/product/product?sku=TEA-001' });

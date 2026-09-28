@@ -73,8 +73,12 @@ logged in debug mode otherwise.
 
 Sends: `e_c`, `e_a`, `e_n`, `e_v`.
 
+Following the GA4 convention, `category` and `action` are human-readable (`'Product'`, `'Add to cart'`)
+while `name` is a snake_case event name (`'add_to_cart'`), so **Events > Name** in Matomo reads like a
+GA4 event name.
+
 ```js
-Matomo.trackEvent('Video', 'play', 'intro.mp4');
+Matomo.trackEvent('Product', 'Add to cart', 'add_to_cart', 59.9);
 ```
 
 ### trackSiteSearch(keyword, category?, resultsCount?)

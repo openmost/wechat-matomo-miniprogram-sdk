@@ -29,7 +29,8 @@
   "files": [
     "miniprogram_dist",
     "README.md",
-    "README.zh-CN.md",
+    "README.en.md",
+    "README.zh-TW.md",
     "LICENSE",
     "CHANGELOG.md"
   ],
