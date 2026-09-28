@@ -370,7 +370,8 @@ describe('Matomo facade', () => {
     expect(hits()).toEqual([]);
     m.setConsentGiven();
     await m.flush();
-    expect(hits().map((h) => h.e_a)).toEqual(['before', 'withheld']);
+    // Hits queued before the withdrawal are dropped, like opt-out.
+    expect(hits().map((h) => h.e_a)).toEqual(['withheld']);
   });
 
   it('starts no queue and writes no storage when launched by the crawler (scene 1129)', async () => {
@@ -524,7 +525,8 @@ describe('Matomo facade', () => {
     expect(hits()).toEqual([]);
     m.setConsentGiven();
     await m.flush();
-    expect(hits().map((h) => h.e_a)).toEqual(['before', 'withheld']);
+    // Hits queued before the withdrawal are dropped, like opt-out.
+    expect(hits().map((h) => h.e_a)).toEqual(['withheld']);
   });
 
   const newTracker = () => {

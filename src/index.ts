@@ -282,6 +282,7 @@ export class MatomoTracker {
     this.consent((c, s) => {
       c.forget(Kind.Tracking); // also requires tracking consent from now on
       s.pending = [];
+      s.queue.clear(); // hits from before the withdrawal are never sent, like optOut()
       s.visitor.reset();
     });
   }
