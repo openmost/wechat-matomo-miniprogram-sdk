@@ -18,9 +18,9 @@
 - 自定义维度
 - 用户 ID
 - 同意模式（`tracking` / `cookie`）与退出追踪，语义与 Matomo JS 保持一致
-- 离线队列，支持批量发送、指数退避重试与容量上限
+- 离线队列，支持批量发送、指数退避重试与容量上限 —— 未发送的数据在重启和长时间离线后依然保留，最长 23 小时
 - 零运行时依赖
-- **压缩后 < 32 KB**（实测 28,591 字节）
+- **压缩后 < 32 KB**（实测 29,844 字节）
 - 完整 TypeScript 类型定义
 - 兼容 WebView 与 Skyline 渲染引擎
 
@@ -149,6 +149,10 @@ function onDecline() {
 }
 ```
 
+与 Matomo JS 一致，用户同意之前产生的页面访问和事件不会丢失：它们只保存在内存中（不会写入本地存储，最多 100
+条），并在调用 `setConsentGiven()` 后立即按原始时间发送。调用 `optOut()` 或 `forgetConsentGiven()` 会丢弃这些数据；
+如果用户在同意之前关闭了小程序，这些数据也会丢失。
+
 完整 API 请参阅 [`docs/api.md`](./docs/api.md)；该流程具体收集哪些数据，可直接粘贴到隐私政策中的文案见
 [`docs/privacy-disclosure.md`](./docs/privacy-disclosure.md)。
 
@@ -156,6 +160,9 @@ function onDecline() {
 
 页面以 `app://<appId>/<route>?<query>` 的 URL 格式发送，因此 Matomo 的 **行为 → 页面** 报表会按小程序和路由
 组织，而不是按一个笼统的域名。页面标题（`action_name`）优先取 `pageTitles[route]`，否则使用路由本身。
+
+由于使用了 `app://` 协议，Matomo 网站设置中的「仅追踪以上述 URL 开头的访问和行为」（排除未知 URL）必须保持关闭，
+或者将 `app://<appId>` 添加到该网站的 URL 列表中 —— 否则 Matomo 会丢弃所有数据。
 
 ## 归因（Attribution）
 
@@ -165,6 +172,10 @@ function onDecline() {
 `wechat_<medium>` 营销活动（例如 `wechat_share`、`wechat_qrcode`、`wechat_official_account`）。这些参数
 仅会附加到 **新会话的第一条记录**上（30 分钟无活动即视为新会话，与 Matomo JS 一致）—— 完整场景值对照表与
 优先级规则见 [`docs/scenes.md`](./docs/scenes.md)。
+
+Matomo 核心只保存营销活动名称和关键词（`mtm_campaign`、`mtm_kwd`）；`mtm_source`、`mtm_medium` 及其他
+`mtm_*` 维度仅在安装了 [MarketingCampaignsReporting](https://plugins.matomo.org/MarketingCampaignsReporting)
+插件时才会被保存。
 
 微信爬虫（场景值 `1129`「微信爬虫访问」，用于为搜索收录小程序内容）的访问完全不会被统计：既不发送任何数据，
 也不会写入本地存储。

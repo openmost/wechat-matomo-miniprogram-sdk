@@ -18,9 +18,10 @@ A zero-dependency [Matomo](https://matomo.org) analytics SDK for WeChat mini pro
 - Custom dimensions
 - User ID
 - Consent modes (`tracking` / `cookie`) and opt-out, matching Matomo JS semantics
-- Offline queue with bulk sending, exponential-backoff retry, and a size cap
+- Offline queue with bulk sending, exponential-backoff retry, and a size cap — unsent hits survive
+  restarts and long offline periods for up to 23 hours
 - Zero runtime dependencies
-- **< 32 KB minified** (measured 28,591 B)
+- **< 32 KB minified** (measured 29,844 B)
 - Full TypeScript types
 - Works in the WebView and Skyline rendering engines
 
@@ -150,6 +151,11 @@ function onDecline() {
 }
 ```
 
+Like Matomo JS, pageviews and events tracked before the user agrees are not lost: they are kept in memory
+only (never written to storage, at most 100) and sent, with their original time, as soon as
+`setConsentGiven()` is called. `optOut()` or `forgetConsentGiven()` discards them, and they are lost if the
+user closes the mini program before agreeing.
+
 See [`docs/api.md`](./docs/api.md) for the full API, and
 [`docs/privacy-disclosure.md`](./docs/privacy-disclosure.md) for ready-to-paste privacy-policy text
 describing exactly what this flow collects.
@@ -160,6 +166,10 @@ Pages are sent with the URL scheme `app://<appId>/<route>?<query>`, so Matomo's 
 report is organized by mini program and route rather than by a generic domain. The page title
 (`action_name`) is `pageTitles[route]` if configured, otherwise the route itself.
 
+Because of the `app://` scheme, the Matomo website setting "Only track visits and actions when the action
+URL starts with one of the above URLs" (exclude unknown URLs) must stay off, or `app://<appId>` must be
+added to the website's URLs — otherwise Matomo discards every hit.
+
 ## Attribution
 
 If the launch (or enter) query string already contains explicit campaign parameters (`mtm_*`, `utm_*` or
@@ -169,6 +179,10 @@ opened the mini program is mapped to a `wechat_<medium>` campaign (e.g. `wechat_
 `wechat_official_account`). These parameters are only attached to the **first hit of a new visit** (a
 30-minute inactivity timeout, matching Matomo JS) — see [`docs/scenes.md`](./docs/scenes.md) for the full
 scene table and precedence rules.
+
+Matomo core stores the campaign name and keyword (`mtm_campaign`, `mtm_kwd`); `mtm_source`,
+`mtm_medium` and the other `mtm_*` dimensions are only stored when the
+[MarketingCampaignsReporting](https://plugins.matomo.org/MarketingCampaignsReporting) plugin is installed.
 
 Visits from the WeChat crawler (scene `1129`, 微信爬虫访问, used to index mini program content for search)
 are not tracked at all: no hit is sent and nothing is written to storage.

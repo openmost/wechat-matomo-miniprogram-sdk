@@ -65,6 +65,9 @@ Matomo.trackPageView('Product detail', 'pages/product/index?id=42');
 
 ### trackEvent(category, action, name?, value?)
 
+Every hit other than a pageview (events, site searches, goals, links, ecommerce, heartbeat pings) also
+carries the `pv_id` of the last pageview, like Matomo JS, so Matomo links it to that page.
+
 Sends a custom event. `category` and `action` are required (non-empty strings); the call is a no-op and
 logged in debug mode otherwise.
 
@@ -209,14 +212,20 @@ Switches consent mode to `'tracking'` at runtime if it was `false` (the default)
 `setConsentGiven()` is called. No-op if a consent mode is already configured (`requireConsent` in
 `init`).
 
+Like Matomo JS, hits tracked while `'tracking'` consent is pending are not lost: they are kept in memory
+only (never written to storage, at most 100, oldest dropped first) and sent, in order and with their
+original time, as soon as `setConsentGiven()` is called. They are discarded by `optOut()` and
+`forgetConsentGiven()`, and lost if the mini program is closed before consent.
+
 ```js
 Matomo.requireConsent();
 ```
 
 ### setConsentGiven()
 
-Records that the user consented (privacy popup "Agree"). Unblocks tracking under `'tracking'` mode and
-enables persisting the visitor ID to storage under `'cookie'` mode.
+Records that the user consented (privacy popup "Agree"). Unblocks tracking under `'tracking'` mode —
+sending the hits kept in memory while consent was pending (see [requireConsent()](#requireconsent)) —
+and enables persisting the visitor ID to storage under `'cookie'` mode.
 
 ```js
 Matomo.setConsentGiven();
@@ -224,8 +233,10 @@ Matomo.setConsentGiven();
 
 ### forgetConsentGiven()
 
-Withdraws consent: clears the stored consent flag and resets the visitor ID (a fresh visitor ID is
-generated and, depending on the consent mode, no longer persisted).
+Withdraws consent: like Matomo JS, it first calls `requireConsent()` (so a tracker initialised with
+`requireConsent: false` switches to `'tracking'` mode and stops sending), then clears the stored consent
+flag, discards the hits kept in memory while consent was pending, and resets the visitor ID (a fresh
+visitor ID is generated and no longer persisted).
 
 ```js
 Matomo.forgetConsentGiven();
@@ -261,7 +272,15 @@ if (Matomo.isOptedOut()) {
 ### flush()
 
 Sends any queued hits immediately instead of waiting for `batchSize`/`flushInterval`. Returns a
-`Promise<void>` that always resolves (network errors are swallowed and left for the next retry).
+`Promise<void>` that always resolves (network errors are swallowed and left for the next retry). It
+resolves once the requests _it_ started have completed: it does not wait for requests already in
+flight from an earlier flush (at most 2 requests are in flight at a time), and hits waiting on those
+requests or on a retry backoff are not sent by this call.
+
+Unsent hits stay in the persisted queue (capped at `maxQueue`, oldest dropped first) until they are
+sent or are 23 hours old (Matomo refuses older back-dated hits). Network failures without an HTTP response (offline, DNS, domain not in
+`request合法域名`) are retried with exponential backoff (up to 1 minute) without limit within those 23
+hours; server errors (5xx, 408, 429) are retried at most 10 times; other 4xx responses are dropped.
 
 ```js
 await Matomo.flush();

@@ -30,14 +30,21 @@ visits never inflate your Matomo reports.
 Scenes such as `1011`–`1013` (QR code) and `1047`–`1049` (mini program code) do not, by themselves, tell
 Matomo _which_ QR code or mini program code was scanned — only that a code was scanned. To track
 individual codes or physical placements, encode the campaign explicitly in the code's target page/query
-instead of relying on the scene, e.g. generate the code (via `wx.qy.createQRCode` / the mini program code
-API, or the mini program admin console) with a path such as:
+instead of relying on the scene, e.g. generate the code from your server with the mini program code APIs
+[`wxacode.get`](https://developers.weixin.qq.com/miniprogram/dev/OpenApiDoc/qrcode-link/qr-code/getQRCode.html)
+or
+[`wxacode.createQRCode`](https://developers.weixin.qq.com/miniprogram/dev/OpenApiDoc/qrcode-link/qr-code/createQRCode.html)
+(both take a `path` with a query string), or from the mini program admin console, with a path such as:
 
 ```
 pages/index/index?mtm_campaign=poster_shop42&mtm_medium=qrcode&mtm_source=offline
 ```
 
 The SDK reads these query parameters at launch (step 1 above) and they take priority over the scene.
+
+`wxacode.getUnlimited` does not accept a query string: it only passes a `scene` string of at most 32
+characters (delivered to the page as `query.scene`), so it cannot carry arbitrary `mtm_*` parameters.
+Use `wxacode.get` or `wxacode.createQRCode` for campaign-tagged codes.
 
 ## Scene table
 

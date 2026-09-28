@@ -48,9 +48,10 @@ read from the real client, not the proxy, by adding to `config/config.ini.php`:
 proxy_client_headers[] = HTTP_X_FORWARDED_FOR
 ```
 
-(Matomo Cloud sits behind Matomo's own infrastructure already; this `config.ini.php` change is only
-needed on a **self-hosted** Matomo instance placed behind your own reverse proxy — not on Matomo Cloud
-itself, which you cannot edit.)
+Behind your own proxy, Matomo — Cloud or On-Premise — sees **the proxy's IP** for every visitor (breaking
+geolocation and IP-based visitor matching) unless it is configured to trust the proxy's forwarded-for
+header: on **Matomo On-Premise**, add the `proxy_client_headers[]` setting above; on **Matomo Cloud**, you
+cannot edit `config.ini.php`, so ask Matomo Cloud support to trust your proxy's header.
 
 ### Latency and reachability
 
@@ -110,8 +111,10 @@ server {
 proxy_client_headers[] = HTTP_X_FORWARDED_FOR
 ```
 
-（Matomo Cloud 本身已运行在 Matomo 官方基础设施之后；这项 `config.ini.php` 配置仅适用于部署在**你自己的**
-反向代理之后的**自建** Matomo 实例，而不适用于你无法编辑的 Matomo Cloud 本身。）
+位于你自己的代理之后时，无论是 Matomo Cloud 还是自建（On-Premise）Matomo，都会把**代理服务器的 IP** 当作每位
+访客的 IP（导致地理定位和基于 IP 的访客识别失效），除非将其配置为信任代理转发的请求头：**自建 Matomo** 请添加上述
+`proxy_client_headers[]` 配置；**Matomo Cloud** 无法编辑 `config.ini.php`，请联系 Matomo Cloud 客服为你的代理
+开启该请求头的信任。
 
 ### 延迟与可达性
 
