@@ -96,23 +96,21 @@ contradictions below.
 
 ## Contradictions with the plan (`docs/superpowers/plans/2026-09-28-sdk.md`, Task 6)
 
-Per the controller's instruction, the plan file was **not** edited. Findings are reported here for the
-controller to rule on:
+Both findings below were ruled on by the controller and applied in Task 6: `src/attribution.ts` uses the
+current official labels for `1001` and `1082` (as `SceneInfo.label`, not just a comment). Recorded here for
+history.
 
-1. **Scene 1001 comment is stale.** Task 6's `SCENE_MAP` defines `1001: null, // 发现栏小程序主入口`. The
-   current official scene list (checked 2026-09-28) labels 1001 as `发现页小程序「最近使用」列表`
+1. **Scene 1001 comment was stale.** Task 6's original `SCENE_MAP` defined `1001: null, // 发现栏小程序主入口`.
+   The current official scene list (checked 2026-09-28) labels 1001 as `发现页小程序「最近使用」列表`
    ("Discover page mini program 'recently used' list"), not "发现栏小程序主入口" ("Discover-tab mini program
-   main entry"). The `null` (direct-entry, no campaign) behavior is still reasonable for this id either way,
-   so no logic change is needed — only the inline comment is wrong.
-   **Proposed edit:** in Task 6's `src/attribution.ts` code block, change the comment on the `1001` entry to
+   main entry"). The `null` (direct-entry, no campaign) behavior is still correct for this id either way —
+   only the label was wrong. **Applied in Task 6:** the `1001` entry now carries the comment
    `// 发现页小程序「最近使用」列表`.
 
-2. **Scene 1082 wording is slightly off (minor/cosmetic).** Task 6 comments `1082` as `公众号会话下发的文字超链接`;
-   the current official label is `公众号会话下发的文字链` (no `超`, "chāo"). Same medium (`official_account`),
-   no behavior change.
-   **Proposed edit:** change the comment on the `1082` entry to `// 公众号会话下发的文字链`, or leave as-is since
-   it does not affect the exported label field (`SceneInfo.label` is not asserted against exact Chinese text
-   in `test/attribution.test.ts`).
+2. **Scene 1082 wording was slightly off (minor/cosmetic).** Task 6 originally labelled `1082` as
+   `公众号会话下发的文字超链接`; the current official label is `公众号会话下发的文字链` (no `超`, "chāo"). Same medium
+   (`official_account`), no behavior change. **Applied in Task 6:** the `1082` entry's `SceneInfo.label` is
+   now `公众号会话下发的文字链`.
 
 No scene id needs to be removed or remapped; `CAMPAIGN_KEYS`, `resolveAttribution`, and the medium/logic for
 every id in Task 6 remain correct as designed.

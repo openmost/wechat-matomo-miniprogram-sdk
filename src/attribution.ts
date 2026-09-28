@@ -24,7 +24,7 @@ export const SCENE_MAP: Readonly<Record<number, SceneInfo | null>> = {
   1022: null, // 聊天顶部置顶小程序入口
   1023: null, // 安卓系统桌面图标
   1025: s('qrcode', '扫描一维码'),
-  1027: s('search', '微信首页顶部搜索框搜索结果页"使用过的小程序"列表'),
+  1027: s('search', '微信首页顶部搜索框搜索结果页「使用过的小程序」列表'),
   1035: s('official_account', '公众号自定义菜单'),
   1036: s('app', 'App 分享消息卡片'),
   1037: s('miniprogram', '小程序打开小程序'),
@@ -53,8 +53,8 @@ export const SCENE_MAP: Readonly<Record<number, SceneInfo | null>> = {
   1104: null, // 微信聊天主界面下拉，「我的小程序」栏
   1106: s('search', '聊天主界面下拉，从顶部搜索结果页打开小程序'),
   1129: s('crawler', '微信爬虫访问'),
-  1154: s('share_timeline', '朋友圈内打开"单页模式"'),
-  1155: s('share_timeline', '"单页模式"打开小程序'),
+  1154: s('share_timeline', '朋友圈内打开「单页模式」'),
+  1155: s('share_timeline', '「单页模式」打开小程序'),
   1167: s('web', 'H5 通过开放标签打开小程序'),
   1168: s('app', '移动/网站应用直接运行小程序'),
   1175: s('channels', '视频号主页商店入口'),
