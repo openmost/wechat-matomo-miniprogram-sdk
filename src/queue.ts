@@ -67,8 +67,9 @@ export class HitQueue {
     return this.hits.length;
   }
 
-  enqueue(query: string): void {
-    this.hits.push({ q: query, ts: this.platform.now(), attempts: 0, nextAt: 0 });
+  /** `ts` is when the hit was tracked (defaults to now); it drives the max-age pruning. */
+  enqueue(query: string, ts = this.platform.now()): void {
+    this.hits.push({ q: query, ts, attempts: 0, nextAt: 0 });
     const overflow = this.hits.length - this.options.maxQueue;
     if (overflow > 0) this.hits.splice(0, overflow);
     this.persist();

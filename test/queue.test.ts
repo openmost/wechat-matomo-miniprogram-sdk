@@ -172,6 +172,14 @@ describe('HitQueue', () => {
     expect(sent(wx, wx.requests.length - 1)).toEqual(['?new']);
   });
 
+  it('ages a hit from the time it was tracked when given one', async () => {
+    const { wx, platform, queue } = setup();
+    queue.enqueue('stale', platform.now() - 23 * HOUR - 1);
+    queue.enqueue('fresh');
+    await queue.flush();
+    expect(sent(wx)).toEqual(['?fresh']);
+  });
+
   it('caps the queue by dropping the oldest hits', () => {
     const { queue, wx } = setup({ maxQueue: 10, batchSize: 50 });
     wx.status = 'fail';

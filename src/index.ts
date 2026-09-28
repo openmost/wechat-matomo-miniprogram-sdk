@@ -40,9 +40,12 @@ interface State {
   attribution?: Record<string, string>;
   ecommerceView?: Params;
   lastHitTs: number;
+  /** Hits tracked while 'tracking' consent is pending: memory only, like Matomo JS. */
+  pending: Array<{ q: string; ts: number }>;
 }
 
 const MAX_BUFFER = 100;
+const MAX_PENDING = 100;
 const nonEmpty = (v: unknown): v is string => typeof v === 'string' && v.trim() !== '';
 
 export class MatomoTracker {
@@ -88,6 +91,7 @@ export class MatomoTracker {
         current: { route: launch?.path ?? '', query: launch?.query ?? {} },
         attribution: resolveAttribution(launch, config.trackScenes).params,
         lastHitTs: 0,
+        pending: [],
       };
       // Wire the lifecycle hooks before starting the queue's timer/online-listener: if
       // `installLifecycle` throws, the queue must never have been started, or a failed init
@@ -240,12 +244,18 @@ export class MatomoTracker {
     this.run((s) => {
       s.consent.setConsentGiven();
       s.visitor.setPersist(true);
+      const pending = s.pending;
+      s.pending = [];
+      pending.forEach((hit) => s.queue.enqueue(hit.q, hit.ts));
     });
   }
 
   forgetConsentGiven(): void {
     this.run((s) => {
+      // Matomo JS: forgetConsentGiven() also requires consent from now on.
+      s.consent.requireConsent();
       s.consent.forgetConsentGiven();
+      s.pending = [];
       s.visitor.reset();
       s.visitor.setPersist(s.consent.canPersistVisitor());
     });
@@ -254,6 +264,7 @@ export class MatomoTracker {
   optOut(): void {
     this.run((s) => {
       s.consent.optOut();
+      s.pending = [];
       s.queue.clear();
     });
   }
@@ -365,7 +376,9 @@ export class MatomoTracker {
     specific: Params,
     opts: { attribute?: boolean; onSent?: () => void } = {},
   ): void {
-    if (s.config.disabled || !s.consent.canSend()) return;
+    if (s.config.disabled || s.consent.isOptedOut()) return;
+    // Past the opt-out check, `canSend()` is only false while 'tracking' consent is pending.
+    const pending = !s.consent.canSend();
     const attribute = opts.attribute ?? true;
     const { newVisit } = s.visitor.touch();
     if (attribute && newVisit && s.lastHitTs > 0)
@@ -375,23 +388,23 @@ export class MatomoTracker {
       url = withQuery(url, s.attribution);
     if (attribute) s.attribution = undefined;
     const now = s.platform.now();
-    s.queue.enqueue(
-      buildHit(
-        {
-          siteId: s.config.siteId,
-          visitor: s.visitor.params(),
-          ua: s.device.ua,
-          res: s.device.res,
-          lang: s.device.lang,
-          userId: s.userId,
-          dimensions: s.dimensions,
-          url,
-          now,
-          random: () => s.platform.random(),
-        },
-        specific,
-      ),
+    const hit = buildHit(
+      {
+        siteId: s.config.siteId,
+        visitor: s.visitor.params(),
+        ua: s.device.ua,
+        res: s.device.res,
+        lang: s.device.lang,
+        userId: s.userId,
+        dimensions: s.dimensions,
+        url,
+        now,
+        random: () => s.platform.random(),
+      },
+      specific,
     );
+    if (!pending) s.queue.enqueue(hit, now);
+    else if (s.pending.push({ q: hit, ts: now }) > MAX_PENDING) s.pending.shift();
     s.lastHitTs = now;
     opts.onSent?.();
   }

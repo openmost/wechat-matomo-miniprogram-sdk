@@ -177,7 +177,7 @@ describe('Matomo facade', () => {
     expect(hits()).toEqual([]);
     m.setConsentGiven();
     m.trackEvent('a', 'after');
-    expect(hits().map((h) => h.e_a)).toEqual(['after']);
+    expect(hits().map((h) => h.e_a)).toEqual(['before', 'after']);
     expect(wx.storage.has(`${STORAGE_PREFIX}visitor`)).toBe(true);
     const id = m.getVisitorId();
     m.forgetConsentGiven();
@@ -306,11 +306,12 @@ describe('Matomo facade', () => {
   });
 
   it('keeps a pending ecommerce view when the pageview it belongs to is blocked', () => {
-    init({ requireConsent: 'tracking', autoTrackPages: false });
+    init({ autoTrackPages: false });
+    m.optOut();
     m.setEcommerceView('SKU9', 'Coffee', 'Drinks', 8);
     m.trackPageView('Blocked');
     expect(hits()).toEqual([]);
-    m.setConsentGiven();
+    m.optIn();
     m.trackPageView('Shown');
     expect(last()).toMatchObject({
       action_name: 'Shown',
@@ -404,6 +405,52 @@ describe('Matomo facade', () => {
     expect(hits().map((h) => h.e_a)).toEqual(['before']);
     m.setConsentGiven();
     m.trackEvent('a', 'after');
-    expect(hits().map((h) => h.e_a)).toEqual(['before', 'after']);
+    expect(hits().map((h) => h.e_a)).toEqual(['before', 'blocked', 'after']);
+  });
+
+  it('keeps hits in memory until consent and sends them in order with their original time', () => {
+    init({ requireConsent: 'tracking' });
+    m.trackEvent('a', 'first');
+    now += 60_000;
+    m.trackEvent('a', 'second');
+    expect(hits()).toEqual([]);
+    expect(wx.storage.has(`${STORAGE_PREFIX}queue`)).toBe(false); // never persisted
+    now += 60_000;
+    m.setConsentGiven();
+    const sentHits = hits();
+    expect(sentHits.map((h) => h.e_a)).toEqual(['first', 'second']);
+    const start = Math.floor(new Date(2026, 8, 28, 10, 0, 0).getTime() / 1000);
+    expect(sentHits.map((h) => Number(h.cdt))).toEqual([start, start + 60]);
+    expect(new Set(sentHits.map((h) => h._id))).toEqual(new Set([m.getVisitorId()]));
+  });
+
+  it('keeps at most 100 hits before consent, dropping the oldest', async () => {
+    init({ requireConsent: 'tracking' });
+    for (let i = 0; i < 105; i++) m.trackEvent('Cat', String(i));
+    m.setConsentGiven();
+    await vi.advanceTimersByTimeAsync(0); // let the auto-flush requests settle
+    await m.flush();
+    expect(hits().map((h) => h.e_a)).toEqual(Array.from({ length: 100 }, (_, i) => String(i + 5)));
+  });
+
+  it('drops hits kept before consent on optOut and forgetConsentGiven', () => {
+    init({ requireConsent: 'tracking' });
+    m.trackEvent('a', 'opted-out');
+    m.optOut();
+    m.optIn();
+    m.trackEvent('a', 'forgotten');
+    m.forgetConsentGiven();
+    m.setConsentGiven();
+    expect(hits()).toEqual([]);
+  });
+
+  it('forgetConsentGiven stops tracking even without requireConsent, like Matomo JS', () => {
+    init();
+    m.trackEvent('a', 'before');
+    m.forgetConsentGiven();
+    m.trackEvent('a', 'withheld');
+    expect(hits().map((h) => h.e_a)).toEqual(['before']);
+    m.setConsentGiven();
+    expect(hits().map((h) => h.e_a)).toEqual(['before', 'withheld']);
   });
 });
