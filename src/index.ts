@@ -6,7 +6,15 @@ import { Cart, cartUpdateParams, orderParams, productViewParams } from './ecomme
 import { installLifecycle, type LifecycleTarget, type ShareResult } from './lifecycle';
 import { createPlatform, type Platform } from './platform';
 import { HitQueue } from './queue';
-import { buildHit, newPageViewId, pageUrl, parsePath, withQuery, type PageRef } from './request';
+import {
+  buildHit,
+  newPageViewId,
+  pageUrl,
+  parsePath,
+  toQueryString,
+  withQuery,
+  type PageRef,
+} from './request';
 import type { Params } from './types';
 import { guard } from './util';
 import { Visitor, VISIT_TIMEOUT_MS } from './visitor';
@@ -320,9 +328,12 @@ export class MatomoTracker {
       mtm_medium: kind === 'chat' ? 'share' : 'share_timeline',
     };
     const base: ShareResult = result ?? {};
-    if (kind === 'timeline') return { ...base, query: withQuery(base.query ?? '', params) };
-    const defaultPath = withQuery(`/${route}`, route === s.current.route ? s.current.query : {});
-    return { ...base, path: withQuery(base.path ?? defaultPath, params) };
+    // Without an explicit path/query from the host, WeChat shares the current page with its
+    // own query, so default to that before appending the campaign.
+    const pageQuery = route === s.current.route ? s.current.query : {};
+    if (kind === 'timeline')
+      return { ...base, query: withQuery(base.query ?? toQueryString(pageQuery), params) };
+    return { ...base, path: withQuery(base.path ?? withQuery(`/${route}`, pageQuery), params) };
   }
 
   private pageView(s: State, title?: string, path?: string): void {

@@ -220,6 +220,19 @@ describe('Matomo facade', () => {
     expect(last()).toMatchObject({ e_c: 'Share', e_a: 'share_timeline', e_n: 'pages/item/item' });
   });
 
+  it('keeps the page query on a timeline share when the host returns no query', () => {
+    init();
+    const { p, ctx } = showPage(
+      'pages/item/item',
+      { id: '42' },
+      { onShareTimeline: () => ({ title: 'T' }) },
+    );
+    expect((p?.onShareTimeline as Fn).call(ctx)).toEqual({
+      title: 'T',
+      query: 'id=42&mtm_campaign=wechat_share&mtm_source=wechat&mtm_medium=share_timeline',
+    });
+  });
+
   it('sends a heartbeat ping on hide after the heartbeat delay and flushes on app hide', async () => {
     init({ heartbeat: 15 });
     target.App?.({});
