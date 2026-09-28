@@ -1,4 +1,4 @@
-import { guard, isRecord } from './util';
+import { guard, isRecord, stripLeadingSlash } from './util';
 
 export type Constructor = (options: Record<string, unknown>) => unknown;
 
@@ -53,8 +53,13 @@ const routeOf = (ctx: PageContext): string => (typeof ctx.route === 'string' ? c
  * Route of a page instance, or '' for a child component: a Component page's `is` equals its route,
  * a child component's `is` is its own component path.
  */
-const pageRoute = (ctx: PageContext): string =>
-  ctx.is === undefined || ctx.is === ctx.route ? routeOf(ctx) : '';
+const pageRoute = (ctx: PageContext): string => {
+  const route = routeOf(ctx);
+  return ctx.is === undefined ||
+    (typeof ctx.is === 'string' && stripLeadingSlash(ctx.is) === stripLeadingSlash(route))
+    ? route
+    : '';
+};
 
 /** Host handler first (result and exceptions untouched), then the guarded SDK hook. */
 function after(original: unknown, hook: (ctx: PageContext) => void): Handler {

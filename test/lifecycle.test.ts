@@ -219,6 +219,18 @@ describe('installLifecycle', () => {
     });
   });
 
+  it('matches Component pages whatever the leading slashes of is and route', () => {
+    const { target, registered, hooks } = setup();
+    target.Component?.({});
+    const options = registered.components[0] as Opts;
+    call(options.lifetimes as Opts, 'ready', { route: 'pages/c/c', is: '/pages/c/c' });
+    call(options.lifetimes as Opts, 'ready', { route: '/pages/d/d', is: 'pages/d/d' });
+    call(options.lifetimes as Opts, 'ready', { route: 'pages/c/c', is: 'components/card/card' });
+    expect(hooks.pageShow).toHaveBeenCalledTimes(2);
+    expect(hooks.pageShow).toHaveBeenCalledWith('pages/c/c', {});
+    expect(hooks.pageShow).toHaveBeenCalledWith('/pages/d/d', {});
+  });
+
   it('ignores a child component whose route is not its own path', () => {
     const { target, registered, hooks } = setup();
     target.Component?.({});
