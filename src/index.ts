@@ -50,6 +50,12 @@ const MAX_BUFFER = 100;
 const MAX_PENDING = 100;
 /** WeChat crawler (微信爬虫访问): indexing visits are not tracked. */
 const CRAWLER_SCENE = 1129;
+/** Same platform, with storage writes turned into no-ops. */
+const readOnly = (p: Platform): Platform =>
+  Object.assign(Object.create(p) as Platform, {
+    setItem: () => false,
+    removeItem: () => undefined,
+  });
 const isCrawler = (p: Platform): boolean =>
   p.launchOptions()?.scene === CRAWLER_SCENE || p.enterOptions()?.scene === CRAWLER_SCENE;
 const nonEmpty = (v: unknown): v is string => typeof v === 'string' && v.trim() !== '';
@@ -75,10 +81,14 @@ export class MatomoTracker {
         this.buffer = [];
         return false;
       }
-      const { platform, target } = this.deps();
+      const deps = this.deps();
+      const { target } = deps;
+      const launch = deps.platform.launchOptions();
+      // Crawler launch: nothing is tracked, so nothing may be written to storage either.
+      const crawler = launch?.scene === CRAWLER_SCENE;
+      const platform = crawler ? readOnly(deps.platform) : deps.platform;
       const config = parsed.config;
       const consent = new Consent(platform, config.requireConsent);
-      const launch = platform.launchOptions();
       state = {
         config,
         platform,
@@ -103,7 +113,7 @@ export class MatomoTracker {
       // `installLifecycle` throws, the queue must never have been started, or a failed init
       // would leave a live queue running behind the caller's back.
       if (target) installLifecycle(target, this.hooks(state), (e) => this.log('hook error', e));
-      if (!config.disabled) state.queue.start();
+      if (!config.disabled && !crawler) state.queue.start();
       this.state = state;
       const pending = this.buffer;
       this.buffer = [];

@@ -22,8 +22,9 @@ without any extra work from the host.
 ## WeChat crawler (scene 1129)
 
 When the launch or enter scene is `1129` (微信爬虫访问 — WeChat's crawler opening pages to index them for
-search), the SDK tracks nothing: every hit is dropped and nothing is written to storage, so crawler
-visits never inflate your Matomo reports.
+search), the SDK tracks nothing: every hit is dropped, so crawler visits never inflate your Matomo
+reports. On a crawler launch the SDK also starts no send queue and writes nothing to storage, not even
+for `setConsentGiven()` or `optOut()`.
 
 ## Adding `mtm_campaign` to QR codes / mini program codes
 

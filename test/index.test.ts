@@ -365,6 +365,23 @@ describe('Matomo facade', () => {
     expect(hits().map((h) => h.e_a)).toEqual(['before', 'withheld']);
   });
 
+  it('starts no queue and writes no storage when launched by the crawler (scene 1129)', async () => {
+    wx.launch = { path: 'pages/index/index', scene: 1129, query: {} };
+    const timers = vi.getTimerCount();
+    init();
+    m.setConsentGiven();
+    m.optOut();
+    m.optIn();
+    m.forgetConsentGiven();
+    m.trackEvent('a', 'b');
+    await m.flush();
+    expect(vi.getTimerCount()).toBe(timers);
+    expect(wx.onNetworkStatusChange).not.toHaveBeenCalled();
+    expect(wx.setStorageSync).not.toHaveBeenCalled();
+    expect(wx.removeStorageSync).not.toHaveBeenCalled();
+    expect(hits()).toEqual([]);
+  });
+
   it('drops NaN numeric params instead of sending the literal "NaN"', () => {
     init();
     m.trackEvent('a', 'b', undefined, NaN);
