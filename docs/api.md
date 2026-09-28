@@ -64,19 +64,26 @@ Matomo.init({
 
 ### Automatic events
 
-Besides pageviews, the SDK sends these events by itself, named in GA4 style (readable category and
-action, snake_case GA4 event name as the Matomo event name):
+Matomo has no official event naming convention, so this SDK follows the widely used GA4
+[recommended events](https://support.google.com/analytics/answer/9267735?hl=en) convention: `category` is a readable group, `action` is the event name in
+sentence case, and the event `name` (Matomo's `e_n`) is the snake_case GA4 event name. Besides
+pageviews, the SDK sends the automatic events below by itself; the `Auth` events are the recommended
+manual ones.
 
-| When                                                         | Category    | Action              | Name                |
-| ------------------------------------------------------------ | ----------- | ------------------- | ------------------- |
-| `onShareAppMessage` (option `trackShares`, on by default)    | `Share`     | `Share to chat`     | `share`             |
-| `onShareTimeline` (option `trackShares`)                     | `Share`     | `Share to Moments`  | `share`             |
-| `wx.requestPayment` called (option `trackPayments`, off)     | `Ecommerce` | `Payment started`   | `begin_checkout`    |
-| payment succeeded                                            | `Ecommerce` | `Payment completed` | `purchase`          |
-| payment cancelled by the user (`requestPayment:fail cancel`) | `Ecommerce` | `Payment cancelled` | `payment_cancelled` |
-| payment failed for any other reason                          | `Ecommerce` | `Payment failed`    | `payment_failed`    |
+| Category    | Action              | Name                | Sent                                                                                   |
+| ----------- | ------------------- | ------------------- | -------------------------------------------------------------------------------------- |
+| `Ecommerce` | `Begin checkout`    | `begin_checkout`    | automatically when `wx.requestPayment` is called (option `trackPayments`, off)         |
+| `Ecommerce` | `Purchase`          | `purchase`          | automatically when the payment succeeded                                               |
+| `Ecommerce` | `Payment cancelled` | `payment_cancelled` | automatically when the user cancelled (`requestPayment:fail cancel`)                   |
+| `Ecommerce` | `Payment failed`    | `payment_failed`    | automatically when the payment failed for any other reason                             |
+| `Share`     | `Share to chat`     | `share_to_chat`     | automatically from `onShareAppMessage` (option `trackShares`, on by default)           |
+| `Share`     | `Share to Moments`  | `share_to_moments`  | automatically from `onShareTimeline` (option `trackShares`)                            |
+| `Auth`      | `Login`             | `login`             | by your code, once your own login succeeded — call [setUserId()](#setuseriduserid) too |
+| `Auth`      | `Sign up`           | `sign_up`           | by your code, once a new account was created                                           |
 
-The shared page is the page URL of the share event.
+The shared page is the page URL of the share event. `Login` and `Sign up` are not tracked
+automatically: most mini programs call `wx.login` silently at launch to refresh the session code, which
+is not a user login and would inflate the counts.
 
 With `trackPayments: true`, `init` replaces
 [`wx.requestPayment`](https://developers.weixin.qq.com/miniprogram/dev/api/payment/wx.requestPayment.html)

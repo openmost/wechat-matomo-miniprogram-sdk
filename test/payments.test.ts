@@ -17,7 +17,7 @@ const params = {
   signType: 'RSA',
   paySign: 's',
 };
-const STARTED = ['Payment started', 'begin_checkout'];
+const STARTED = ['Begin checkout', 'begin_checkout'];
 
 describe('wrapPayment', () => {
   it('reports start and success, and calls the host callbacks with the same arguments', () => {
@@ -35,7 +35,7 @@ describe('wrapPayment', () => {
     expect(original.mock.calls[0]?.[0]).toMatchObject(params);
     expect(success).toHaveBeenCalledWith({ errMsg: 'requestPayment:ok' });
     expect(complete).toHaveBeenCalledWith({ errMsg: 'requestPayment:ok' });
-    expect(events).toEqual([STARTED, ['Payment completed', 'purchase']]);
+    expect(events).toEqual([STARTED, ['Purchase', 'purchase']]);
   });
 
   it('reports a cancellation and a failure', () => {
@@ -66,7 +66,7 @@ describe('wrapPayment', () => {
     // WeChat calls the callbacks later, on its own stack.
     const wrapped = original.mock.calls[0]?.[0] as Callbacks;
     expect(() => wrapped.success?.({})).toThrow('host bug');
-    expect(events[1]).toEqual(['Payment completed', 'purchase']);
+    expect(events[1]).toEqual(['Purchase', 'purchase']);
   });
 
   it('lets a synchronous exception of wx.requestPayment propagate, and reports nothing', () => {
@@ -100,7 +100,7 @@ describe('wrapPayment', () => {
     expect(a.original.mock.calls[0]?.[0]).toBe(params);
     await ok;
     await Promise.resolve();
-    expect(a.events).toEqual([STARTED, ['Payment completed', 'purchase']]);
+    expect(a.events).toEqual([STARTED, ['Purchase', 'purchase']]);
 
     // WeChat rejects with the fail result object, as passed to `fail`.
     const ko = Promise.reject({ errMsg: 'requestPayment:fail cancel' });

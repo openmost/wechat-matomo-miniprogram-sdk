@@ -87,10 +87,12 @@ describe('docs stay in sync with code', () => {
       'areCookiesEnabled',
       'optOut',
       'Share to chat',
+      'share_to_chat',
       'Share to Moments',
-      'Payment started',
+      'share_to_moments',
+      'Begin checkout',
       'begin_checkout',
-      'Payment completed',
+      'Purchase',
       'purchase',
       'Payment cancelled',
       'payment_cancelled',
@@ -101,5 +103,27 @@ describe('docs stay in sync with code', () => {
     ];
     for (const doc of ['README.md', 'README.zh-TW.md', 'README.en.md'].map(read))
       for (const term of terms) expect(doc).toContain(term);
+    for (const doc of ['README.md', 'README.zh-TW.md', 'README.en.md'].map(read))
+      for (const term of ['Payment started', 'Payment completed', '/ `share` '])
+        expect(doc).not.toContain(term);
+  });
+
+  it('documents the event naming convention in all three READMEs and docs/api.md', () => {
+    const rows = [
+      '| `Ecommerce` | `Begin checkout`',
+      '| `Ecommerce` | `Purchase`',
+      '| `Ecommerce` | `Payment cancelled`',
+      '| `Ecommerce` | `Payment failed`',
+      '| `Share`     | `Share to chat`',
+      '| `Share`     | `Share to Moments`',
+      '| `Auth`      | `Login`',
+      '| `Auth`      | `Sign up`',
+    ];
+    const ga4 = 'https://support.google.com/analytics/answer/9267735?hl=en';
+    for (const doc of ['README.md', 'README.zh-TW.md', 'README.en.md', 'docs/api.md'].map(read)) {
+      for (const row of rows) expect(doc).toContain(row);
+      for (const name of ['`login`', '`sign_up`', 'setUserId']) expect(doc).toContain(name);
+      expect(doc).toContain(ga4);
+    }
   });
 });

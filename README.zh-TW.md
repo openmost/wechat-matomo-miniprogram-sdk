@@ -55,27 +55,27 @@ App({/* 不變 */});
 
 ## 設定選項
 
-| 選項               | 型別                              | 預設值           | 說明                                                                                         |
-| ------------------ | --------------------------------- | ---------------- | -------------------------------------------------------------------------------------------- |
-| `trackerUrl`       | string                            | 必填             | 僅支援 https；會被自動標準化（移除 `matomo.php`、`index.php`、查詢字串、hash；補齊結尾 `/`） |
-| `siteId`           | number \| string                  | 必填             | `^[1-9]\d*$`                                                                                 |
-| `trackerPath`      | string                            | `matomo.php`     | 用於反向代理情境                                                                             |
-| `autoTrackPages`   | boolean                           | `true`           | 包裝 `App` / `Page` / `Component`                                                            |
-| `pageTitles`       | `Record<string,string>`           | `{}`             | 路由 → 標題；未設定時使用路由本身（與 `navigationBarTitleText` 無關）                        |
-| `excludedRoutes`   | string[]                          | `[]`             | 路由前綴比對（忽略開頭的 `/`），如 `pages/debug/`                                            |
-| `trackShares`      | boolean                           | `true`           | 分享時傳送 `Share` / `Share to chat` 或 `Share to Moments` / `share` 事件                    |
-| `trackPayments`    | boolean                           | `false`          | 包裝 `wx.requestPayment`，傳送 GA4 風格的付款事件                                            |
-| `shareCampaign`    | string \| false                   | `'wechat_share'` | 以 `mtm_campaign` 形式附加到分享路徑                                                         |
-| `trackScenes`      | boolean                           | `true`           | 將入口場景值對應為行銷活動/來源                                                              |
-| `requireConsent`   | `false \| 'tracking' \| 'cookie'` | `false`          | 與 Matomo JS 的同意模式語義一致                                                              |
-| `userId`           | string                            | —                | 也可稍後透過 `setUserId` 設定                                                                |
-| `customDimensions` | `Record<number,string>`           | `{}`             | 索引範圍 1–999                                                                               |
-| `heartbeat`        | number                            | `15`             | 單位秒；0 表示停用；透過 `onHide` 時的 `ping=1` 傳送                                         |
-| `batchSize`        | number                            | `20`             | 每次批次請求包含的筆數                                                                       |
-| `flushInterval`    | number                            | `5000`           | 單位毫秒                                                                                     |
-| `maxQueue`         | number                            | `500`            | 超出上限時優先捨棄最舊的紀錄                                                                 |
-| `debug`            | boolean                           | `false`          | 主控台記錄輸出；正式環境除非明確開啟，否則不應啟用                                           |
-| `disabled`         | boolean                           | `false`          | 總開關                                                                                       |
+| 選項               | 型別                              | 預設值           | 說明                                                                                                   |
+| ------------------ | --------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------ |
+| `trackerUrl`       | string                            | 必填             | 僅支援 https；會被自動標準化（移除 `matomo.php`、`index.php`、查詢字串、hash；補齊結尾 `/`）           |
+| `siteId`           | number \| string                  | 必填             | `^[1-9]\d*$`                                                                                           |
+| `trackerPath`      | string                            | `matomo.php`     | 用於反向代理情境                                                                                       |
+| `autoTrackPages`   | boolean                           | `true`           | 包裝 `App` / `Page` / `Component`                                                                      |
+| `pageTitles`       | `Record<string,string>`           | `{}`             | 路由 → 標題；未設定時使用路由本身（與 `navigationBarTitleText` 無關）                                  |
+| `excludedRoutes`   | string[]                          | `[]`             | 路由前綴比對（忽略開頭的 `/`），如 `pages/debug/`                                                      |
+| `trackShares`      | boolean                           | `true`           | 分享時傳送 `Share` / `Share to chat` / `share_to_chat` 或 `Share to Moments` / `share_to_moments` 事件 |
+| `trackPayments`    | boolean                           | `false`          | 包裝 `wx.requestPayment`，傳送 GA4 風格的付款事件                                                      |
+| `shareCampaign`    | string \| false                   | `'wechat_share'` | 以 `mtm_campaign` 形式附加到分享路徑                                                                   |
+| `trackScenes`      | boolean                           | `true`           | 將入口場景值對應為行銷活動/來源                                                                        |
+| `requireConsent`   | `false \| 'tracking' \| 'cookie'` | `false`          | 與 Matomo JS 的同意模式語義一致                                                                        |
+| `userId`           | string                            | —                | 也可稍後透過 `setUserId` 設定                                                                          |
+| `customDimensions` | `Record<number,string>`           | `{}`             | 索引範圍 1–999                                                                                         |
+| `heartbeat`        | number                            | `15`             | 單位秒；0 表示停用；透過 `onHide` 時的 `ping=1` 傳送                                                   |
+| `batchSize`        | number                            | `20`             | 每次批次請求包含的筆數                                                                                 |
+| `flushInterval`    | number                            | `5000`           | 單位毫秒                                                                                               |
+| `maxQueue`         | number                            | `500`            | 超出上限時優先捨棄最舊的紀錄                                                                           |
+| `debug`            | boolean                           | `false`          | 主控台記錄輸出；正式環境除非明確開啟，否則不應啟用                                                     |
+| `disabled`         | boolean                           | `false`          | 總開關                                                                                                 |
 
 `init` 收到不合法設定時的行為詳見 [`docs/api.md`](./docs/api.md)。
 
@@ -83,17 +83,35 @@ App({/* 不變 */});
 
 **事件：**
 
-遵循 GA4 的命名慣例：`category`（類別）與 `action`（動作）使用人類可讀的文字（如 `'Product'`、
-`'Add to cart'`），而事件的 `name`（第三個參數，對應 Matomo 的 `e_n`）則使用 snake_case 形式的事件名稱，如
-`'add_to_cart'` —— 如此一來，Matomo 的 **Events > Name**（事件 > 名稱）呈現方式就會與 GA4 的事件名稱一致。
+Matomo 沒有官方的事件命名慣例，因此本 SDK 採用業界廣泛使用的 GA4
+[建議事件](https://support.google.com/analytics/answer/9267735?hl=en)命名慣例：`category`（類別）是易讀的分組名稱，`action`（動作）是首字母大寫的事件名稱片語，
+事件的 `name`（第三個參數，對應 Matomo 的 `e_n`）則是 snake_case 形式的 GA4 事件名稱 —— 如此一來，Matomo 的
+**Events > Name**（事件 > 名稱）呈現方式就會與 GA4 的事件名稱一致。
 
 ```js
 Matomo.trackEvent('Product', 'Add to cart', 'add_to_cart', 59.9);
 ```
 
-**自動事件**（GA4 風格）：開啟 `trackShares`（預設開啟）時，分享頁面會傳送 `Share` / `Share to chat`
-（`onShareAppMessage`）或 `Share to Moments`（`onShareTimeline`）/ `share` 事件；開啟 `trackPayments`（預設關閉）時，
-微信支付會傳送下文所述的 `Ecommerce` 付款事件。
+SDK 的自動事件以及建議的手動事件都遵循同一慣例：
+
+| 類別        | 動作                | 名稱                | 傳送方式                                                       |
+| ----------- | ------------------- | ------------------- | -------------------------------------------------------------- |
+| `Ecommerce` | `Begin checkout`    | `begin_checkout`    | 自動：呼叫 `wx.requestPayment` 時（`trackPayments`，預設關閉） |
+| `Ecommerce` | `Purchase`          | `purchase`          | 自動：付款成功時                                               |
+| `Ecommerce` | `Payment cancelled` | `payment_cancelled` | 自動：使用者取消付款時（`requestPayment:fail cancel`）         |
+| `Ecommerce` | `Payment failed`    | `payment_failed`    | 自動：其他原因導致付款失敗時                                   |
+| `Share`     | `Share to chat`     | `share_to_chat`     | 自動：`onShareAppMessage`（`trackShares`，預設開啟）           |
+| `Share`     | `Share to Moments`  | `share_to_moments`  | 自動：`onShareTimeline`（`trackShares`）                       |
+| `Auth`      | `Login`             | `login`             | 手動：你自己的登入流程成功後傳送，並同時呼叫 `setUserId()`     |
+| `Auth`      | `Sign up`           | `sign_up`           | 手動：新帳號註冊成功後傳送                                     |
+
+```js
+Matomo.setUserId(hashedUserId);
+Matomo.trackEvent('Auth', 'Login', 'login');
+```
+
+`Login` 與 `Sign up` 不會被自動追蹤：多數小程式會在每次啟動時靜默呼叫 `wx.login` 更新登入憑證（code），
+這並非使用者登入，自動統計會導致數據虛增。
 
 **站內搜尋：**
 
@@ -124,8 +142,8 @@ Matomo.trackEcommerceCartUpdate(119.8);
 Matomo.trackEcommerceOrder('ORDER-42', 119.8, 99.8, 10, 10, 0);
 ```
 
-**電商 —— 微信支付（`trackPayments: true`，預設關閉）：** SDK 會包裝 `wx.requestPayment` 並傳送 GA4 風格的事件：
-呼叫時傳送 `Ecommerce` / `Payment started` / `begin_checkout`；付款成功時傳送 `Payment completed` / `purchase`；
+**電商 —— 微信支付（`trackPayments: true`，預設關閉）：** SDK 會包裝 `wx.requestPayment` 並傳送上表中的 `Ecommerce` 事件：
+呼叫後傳送 `Begin checkout` / `begin_checkout`；付款成功時傳送 `Purchase` / `purchase`；
 使用者取消（`requestPayment:fail cancel`）時傳送 `Payment cancelled` / `payment_cancelled`；其他失敗傳送
 `Payment failed` / `payment_failed`。你的 `success`/`fail`/`complete` 回呼以及回傳的 Promise 與未接入 SDK
 時的行為完全一致。若 `wx.requestPayment` 無法被替換，此選項會靜默停用（`debug: true` 時會輸出日誌）。

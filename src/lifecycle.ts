@@ -226,7 +226,7 @@ export function wrapPayment(original: Fn, report: (action: string, name: string)
       isRecord(e) && /cancel/.test(String(e.errMsg))
         ? emit('Payment cancelled', 'payment_cancelled')
         : emit('Payment failed', 'payment_failed');
-    const done = () => emit('Payment completed', 'purchase');
+    const done = () => emit('Purchase', 'purchase');
     const o = args[0];
     const callbacks =
       isRecord(o) && [o.success, o.fail, o.complete].some((f) => typeof f === 'function');
@@ -245,7 +245,7 @@ export function wrapPayment(original: Fn, report: (action: string, name: string)
       };
     }
     const result = original.apply(this, args);
-    report('Payment started', 'begin_checkout');
+    report('Begin checkout', 'begin_checkout');
     const queued = early;
     early = undefined;
     queued.forEach((f) => f());

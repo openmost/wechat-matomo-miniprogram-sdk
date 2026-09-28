@@ -57,45 +57,63 @@ The host adds the tracker domain to 开发管理 → 服务器域名 → **reque
 
 ## Configuration
 
-| Option             | Type                              | Default          | Notes                                                                               |
-| ------------------ | --------------------------------- | ---------------- | ----------------------------------------------------------------------------------- |
-| `trackerUrl`       | string                            | required         | https only; normalised (strip `matomo.php`, `index.php`, query, hash; trailing `/`) |
-| `siteId`           | number \| string                  | required         | `^[1-9]\d*$`                                                                        |
-| `trackerPath`      | string                            | `matomo.php`     | for proxies                                                                         |
-| `autoTrackPages`   | boolean                           | `true`           | wrap `App` / `Page` / `Component`                                                   |
-| `pageTitles`       | `Record<string,string>`           | `{}`             | route → title; else `navigationBarTitleText`-agnostic route                         |
-| `excludedRoutes`   | string[]                          | `[]`             | route prefix match (leading `/` ignored), e.g. `pages/debug/`                       |
-| `trackShares`      | boolean                           | `true`           | `Share` / `Share to chat` or `Share to Moments` / `share` event                     |
-| `trackPayments`    | boolean                           | `false`          | wrap `wx.requestPayment` and send GA4-style payment events                          |
-| `shareCampaign`    | string \| false                   | `'wechat_share'` | appended to share path as `mtm_campaign`                                            |
-| `trackScenes`      | boolean                           | `true`           | map entry scene to campaign/referrer                                                |
-| `requireConsent`   | `false \| 'tracking' \| 'cookie'` | `false`          | mirrors Matomo JS consent modes                                                     |
-| `userId`           | string                            | —                | may also be set later with `setUserId`                                              |
-| `customDimensions` | `Record<number,string>`           | `{}`             | index 1–999                                                                         |
-| `heartbeat`        | number                            | `15`             | seconds; 0 disables; sent on `onHide` via `ping=1`                                  |
-| `batchSize`        | number                            | `20`             | hits per bulk request                                                               |
-| `flushInterval`    | number                            | `5000`           | ms                                                                                  |
-| `maxQueue`         | number                            | `500`            | oldest dropped first                                                                |
-| `debug`            | boolean                           | `false`          | console logging, never in release unless set                                        |
-| `disabled`         | boolean                           | `false`          | kill switch                                                                         |
+| Option             | Type                              | Default          | Notes                                                                                        |
+| ------------------ | --------------------------------- | ---------------- | -------------------------------------------------------------------------------------------- |
+| `trackerUrl`       | string                            | required         | https only; normalised (strip `matomo.php`, `index.php`, query, hash; trailing `/`)          |
+| `siteId`           | number \| string                  | required         | `^[1-9]\d*$`                                                                                 |
+| `trackerPath`      | string                            | `matomo.php`     | for proxies                                                                                  |
+| `autoTrackPages`   | boolean                           | `true`           | wrap `App` / `Page` / `Component`                                                            |
+| `pageTitles`       | `Record<string,string>`           | `{}`             | route → title; else `navigationBarTitleText`-agnostic route                                  |
+| `excludedRoutes`   | string[]                          | `[]`             | route prefix match (leading `/` ignored), e.g. `pages/debug/`                                |
+| `trackShares`      | boolean                           | `true`           | `Share` / `Share to chat` / `share_to_chat` or `Share to Moments` / `share_to_moments` event |
+| `trackPayments`    | boolean                           | `false`          | wrap `wx.requestPayment` and send GA4-style payment events                                   |
+| `shareCampaign`    | string \| false                   | `'wechat_share'` | appended to share path as `mtm_campaign`                                                     |
+| `trackScenes`      | boolean                           | `true`           | map entry scene to campaign/referrer                                                         |
+| `requireConsent`   | `false \| 'tracking' \| 'cookie'` | `false`          | mirrors Matomo JS consent modes                                                              |
+| `userId`           | string                            | —                | may also be set later with `setUserId`                                                       |
+| `customDimensions` | `Record<number,string>`           | `{}`             | index 1–999                                                                                  |
+| `heartbeat`        | number                            | `15`             | seconds; 0 disables; sent on `onHide` via `ping=1`                                           |
+| `batchSize`        | number                            | `20`             | hits per bulk request                                                                        |
+| `flushInterval`    | number                            | `5000`           | ms                                                                                           |
+| `maxQueue`         | number                            | `500`            | oldest dropped first                                                                         |
+| `debug`            | boolean                           | `false`          | console logging, never in release unless set                                                 |
+| `disabled`         | boolean                           | `false`          | kill switch                                                                                  |
 
 See [`docs/api.md`](./docs/api.md) for what happens when `init` receives invalid config.
 
 ## Usage
 
-**Event:**
+**Events:**
 
-Following the GA4 convention, `category` and `action` are human-readable (`'Product'`, `'Add to cart'`)
-while the event `name` (the 3rd argument, Matomo's `e_n`) is a snake_case event name such as
-`'add_to_cart'` — so that **Events > Name** in Matomo reads like a GA4 event name.
+Matomo has no official event naming convention, so this SDK follows the widely used GA4
+[recommended events](https://support.google.com/analytics/answer/9267735?hl=en) convention: `category` is a readable group, `action` is the event name in
+sentence case, and the event `name` (the 3rd argument, Matomo's `e_n`) is the snake_case GA4 event name
+— so **Events > Name** in Matomo reads like a GA4 event name.
 
 ```js
 Matomo.trackEvent('Product', 'Add to cart', 'add_to_cart', 59.9);
 ```
 
-**Automatic events** (GA4 style): with `trackShares` (on by default), sharing a page sends `Share` /
-`Share to chat` (`onShareAppMessage`) or `Share to Moments` (`onShareTimeline`) / `share`; with
-`trackPayments` (off by default), WeChat Pay sends the `Ecommerce` payment events described below.
+The SDK's automatic events, and the manual ones it recommends, follow the same convention:
+
+| Category    | Action              | Name                | Sent                                                                               |
+| ----------- | ------------------- | ------------------- | ---------------------------------------------------------------------------------- |
+| `Ecommerce` | `Begin checkout`    | `begin_checkout`    | automatically when `wx.requestPayment` is called (`trackPayments`, off by default) |
+| `Ecommerce` | `Purchase`          | `purchase`          | automatically when the payment succeeds                                            |
+| `Ecommerce` | `Payment cancelled` | `payment_cancelled` | automatically when the user cancels (`requestPayment:fail cancel`)                 |
+| `Ecommerce` | `Payment failed`    | `payment_failed`    | automatically on any other payment failure                                         |
+| `Share`     | `Share to chat`     | `share_to_chat`     | automatically from `onShareAppMessage` (`trackShares`, on by default)              |
+| `Share`     | `Share to Moments`  | `share_to_moments`  | automatically from `onShareTimeline` (`trackShares`)                               |
+| `Auth`      | `Login`             | `login`             | by your code, once your own login succeeded — call `setUserId()` too               |
+| `Auth`      | `Sign up`           | `sign_up`           | by your code, once a new account was created                                       |
+
+```js
+Matomo.setUserId(hashedUserId);
+Matomo.trackEvent('Auth', 'Login', 'login');
+```
+
+`Login` and `Sign up` are not tracked automatically: most mini programs call `wx.login` silently at
+launch to refresh the session code, which is not a user login and would inflate the counts.
 
 **Site search:**
 
@@ -127,8 +145,8 @@ Matomo.trackEcommerceOrder('ORDER-42', 119.8, 99.8, 10, 10, 0);
 ```
 
 **Ecommerce — WeChat Pay (`trackPayments: true`, off by default):** the SDK wraps `wx.requestPayment`
-and sends GA4-style events: `Ecommerce` / `Payment started` / `begin_checkout` when it is called, then
-`Payment completed` / `purchase` on success, `Payment cancelled` / `payment_cancelled` when the user
+and sends the `Ecommerce` events of the table above: `Begin checkout` / `begin_checkout` once it is
+called, then `Purchase` / `purchase` on success, `Payment cancelled` / `payment_cancelled` when the user
 cancels (`requestPayment:fail cancel`), or `Payment failed` / `payment_failed` for any other failure.
 Your `success`/`fail`/`complete` callbacks and the returned Promise behave exactly as without the SDK. If
 `wx.requestPayment` cannot be replaced, the option is silently disabled (logged with `debug: true`).

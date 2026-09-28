@@ -219,8 +219,8 @@ describe('Matomo facade', () => {
     });
     const shares = hits().filter((h) => h.e_c === 'Share');
     expect(shares.map((h) => [h.e_a, h.e_n])).toEqual([
-      ['Share to chat', 'share'],
-      ['Share to Moments', 'share'],
+      ['Share to chat', 'share_to_chat'],
+      ['Share to Moments', 'share_to_moments'],
     ]);
     expect(last().url).toContain('pages/item/item');
   });
@@ -452,7 +452,7 @@ describe('Matomo facade', () => {
     expect(last()).toMatchObject({
       e_c: 'Share',
       e_a: 'Share to chat',
-      e_n: 'share',
+      e_n: 'share_to_chat',
     });
   });
 
@@ -881,11 +881,11 @@ describe('Matomo facade', () => {
         .filter((h) => h.e_c === 'Ecommerce')
         .map((h) => [h.e_a, h.e_n]),
     ).toEqual([
-      ['Payment started', 'begin_checkout'],
-      ['Payment completed', 'purchase'],
-      ['Payment started', 'begin_checkout'],
+      ['Begin checkout', 'begin_checkout'],
+      ['Purchase', 'purchase'],
+      ['Begin checkout', 'begin_checkout'],
       ['Payment cancelled', 'payment_cancelled'],
-      ['Payment started', 'begin_checkout'],
+      ['Begin checkout', 'begin_checkout'],
       ['Payment failed', 'payment_failed'],
     ]);
   });

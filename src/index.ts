@@ -376,13 +376,14 @@ export class MatomoTracker {
     route: string,
     result: ShareResult | undefined,
   ): ShareResult | undefined {
-    // GA4 style: readable action, recommended event name `share` (the page is in the hit URL).
+    // Convention: action = sentence case of the snake_case name (the page is in the hit URL).
     if (s.config.trackShares)
-      this.track(s, {
-        e_c: 'Share',
-        e_a: kind === 'chat' ? 'Share to chat' : 'Share to Moments',
-        e_n: 'share',
-      });
+      this.track(
+        s,
+        kind === 'chat'
+          ? { e_c: 'Share', e_a: 'Share to chat', e_n: 'share_to_chat' }
+          : { e_c: 'Share', e_a: 'Share to Moments', e_n: 'share_to_moments' },
+      );
     if (s.config.shareCampaign === false) return result;
     const params = {
       mtm_campaign: s.config.shareCampaign,
