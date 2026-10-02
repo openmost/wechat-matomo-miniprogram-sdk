@@ -10,6 +10,7 @@ Page({
     Matomo.setEcommerceView(this.data.sku, this.data.name, CATEGORIES, this.data.price);
   },
   onAdd() {
+    wx.showToast({ title: 'Added to cart', icon: 'none' });
     Matomo.addEcommerceItem(this.data.sku, this.data.name, CATEGORIES, this.data.price, 1);
     Matomo.trackEcommerceCartUpdate(this.data.price);
   },

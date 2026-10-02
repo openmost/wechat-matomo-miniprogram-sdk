@@ -11,3 +11,55 @@ page {
 button {
   margin-top: 24rpx;
 }
+.title {
+  font-size: 34rpx;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 12rpx;
+}
+.muted {
+  color: #888;
+  font-size: 26rpx;
+  display: block;
+}
+.banner {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  padding: 36rpx 32rpx calc(36rpx + env(safe-area-inset-bottom));
+  background: #fff;
+  border-radius: 24rpx 24rpx 0 0;
+  box-shadow: 0 -8rpx 32rpx rgba(0, 0, 0, 0.12);
+}
+.banner .title {
+  font-size: 32rpx;
+}
+.banner .body {
+  font-size: 26rpx;
+  color: #555;
+  line-height: 1.6;
+  display: block;
+}
+.banner .link {
+  color: #3152a0;
+  font-size: 26rpx;
+  display: block;
+  margin-top: 12rpx;
+}
+.banner .actions {
+  display: flex;
+  gap: 24rpx;
+  margin-top: 8rpx;
+}
+.banner .actions button {
+  flex: 1;
+  margin-top: 24rpx;
+}
+.mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 9;
+}

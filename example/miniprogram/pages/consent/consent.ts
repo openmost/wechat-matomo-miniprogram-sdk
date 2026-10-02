@@ -4,7 +4,7 @@ Page({
   data: {
     optedOut: false,
     cookiesEnabled: false,
-    rememberedConsent: 'none',
+    rememberedConsent: 'None',
   },
   onShow() {
     this.refresh();
@@ -14,7 +14,7 @@ Page({
     this.setData({
       optedOut: Matomo.isOptedOut(),
       cookiesEnabled: Matomo.areCookiesEnabled(),
-      rememberedConsent: at === null ? 'none' : new Date(at).toLocaleString(),
+      rememberedConsent: at === null ? 'None' : new Date(at).toLocaleString(),
     });
   },
   // Tracking consent: nothing is sent until it is given (implies cookie consent).
@@ -50,5 +50,10 @@ Page({
   onOptIn() {
     Matomo.optIn();
     this.refresh();
+  },
+  onResetBanner() {
+    Matomo.forgetConsentGiven();
+    getApp<{ globalData: { bannerDismissed: boolean } }>().globalData.bannerDismissed = false;
+    wx.reLaunch({ url: '/pages/index/index' });
   },
 });

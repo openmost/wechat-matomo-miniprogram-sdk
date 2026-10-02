@@ -7,3 +7,5 @@
    only, tick 详情 → 本地设置 → "不校验合法域名、web-view（业务域名）、TLS 版本以及 HTTPS 证书".
 5. `debug: true` logs invalid calls, invalid config and SDK errors in the DevTools console (not every hit);
    check Matomo → Visitors → Visits Log, or the DevTools Network panel, to see the hits.
+6. The example runs with `requireConsent: 'tracking'`: the home page shows a consent banner, and nothing is
+   sent until you tap Accept. Privacy settings → "Show the consent banner again" brings it back.

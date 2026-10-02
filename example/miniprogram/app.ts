@@ -5,6 +5,8 @@ Matomo.init({
   trackerUrl: 'https://demo.openmost.com', // Openmost test instance; replace with your ICP-filed tracker domain
   siteId: 1,
   debug: true,
+  // Nothing is sent until the visitor accepts the consent banner on the home page.
+  requireConsent: 'tracking',
   // trackPayments: true, // wrap wx.requestPayment: GA4-style Ecommerce payment events (off by default)
   pageTitles: {
     'pages/index/index': 'Home',
@@ -14,4 +16,5 @@ Matomo.init({
   },
 });
 
-App({});
+// bannerDismissed hides the banner for the rest of the session once the visitor has chosen.
+App<{ globalData: { bannerDismissed: boolean } }>({ globalData: { bannerDismissed: false } });
